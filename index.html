@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>מחשבון השקעה לפי גיל</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Rubik:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4/dist/chart.umd.min.js"></script>
+</head>
+<body>
+
+  <header>
+    <h1>מחשבון השקעה לפי גיל</h1>
+    <p class="subtitle">גלה כמה יהיה שווה תיק ההשקעות שלך בגיל הפרישה</p>
+  </header>
+
+  <main>
+
+    <section class="card input-panel">
+      <h2>פרטי ההשקעה</h2>
+      <form id="calculator-form" novalidate>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label for="currentAge">גיל נוכחי</label>
+            <input type="number" id="currentAge" min="1" max="99" value="30" required>
+          </div>
+          <div class="form-group">
+            <label for="retirementAge">גיל יעד / פרישה</label>
+            <input type="number" id="retirementAge" min="2" max="100" value="67" required>
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label for="initial">השקעה ראשונית (₪)</label>
+            <input type="number" id="initial" min="0" step="1000" value="50000" required>
+          </div>
+          <div class="form-group">
+            <label for="monthly">הפקדה חודשית (₪)</label>
+            <input type="number" id="monthly" min="0" step="100" value="2000" required>
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label for="annualRate">תשואה שנתית צפויה (%)</label>
+            <input type="number" id="annualRate" min="0" max="50" step="0.1" value="7" required>
+          </div>
+          <div class="form-group">
+            <label for="inflationRate">שיעור אינפלציה (%) <span class="optional">אופציונלי</span></label>
+            <input type="number" id="inflationRate" min="0" max="30" step="0.1" value="3">
+          </div>
+        </div>
+
+        <p class="error-msg" id="form-error"></p>
+        <button type="submit" class="btn-calculate">חשב</button>
+
+      </form>
+    </section>
+
+    <section class="results-panel hidden" id="results">
+
+      <div class="stats-grid">
+        <div class="stat-card">
+          <span class="stat-label">סך הפקדות</span>
+          <span class="stat-value" id="stat-invested">—</span>
+        </div>
+        <div class="stat-card highlight">
+          <span class="stat-label">שווי בגיל הפרישה</span>
+          <span class="stat-value" id="stat-final">—</span>
+        </div>
+        <div class="stat-card">
+          <span class="stat-label">רווח מריבית</span>
+          <span class="stat-value" id="stat-gain">—</span>
+        </div>
+        <div class="stat-card" id="stat-real-card">
+          <span class="stat-label">שווי ריאלי (מנוכה אינפלציה)</span>
+          <span class="stat-value" id="stat-real">—</span>
+        </div>
+      </div>
+
+      <div class="card chart-card">
+        <h2>גרף צמיחת ההשקעה</h2>
+        <div class="chart-container">
+          <canvas id="investmentChart"></canvas>
+        </div>
+      </div>
+
+      <div class="card table-card">
+        <h2>פירוט שנתי</h2>
+        <div class="table-wrapper">
+          <table id="breakdown-table">
+            <thead>
+              <tr>
+                <th>גיל</th>
+                <th>סך הפקדות (₪)</th>
+                <th>שווי תיק (₪)</th>
+                <th>רווח מריבית (₪)</th>
+                <th class="col-real">שווי ריאלי (₪)</th>
+              </tr>
+            </thead>
+            <tbody id="breakdown-body"></tbody>
+          </table>
+        </div>
+      </div>
+
+    </section>
+
+  </main>
+
+  <footer>
+    <p>המחשבון הינו לצורכי הדמיה בלבד ואינו מהווה ייעוץ פיננסי.</p>
+  </footer>
+
+  <script src="calculator.js"></script>
+</body>
+</html>
