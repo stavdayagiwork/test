@@ -1,0 +1,364 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>תמהיל אור</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --ground:   #0C0C14;
+      --surface:  #14141F;
+      --surface2: #1B1B29;
+      --text:     #DDD9EC;
+      --dim:      #4E4A66;
+      --ch-r:     #FF3550;
+      --ch-g:     #1FE87A;
+      --ch-b:     #4A7FFF;
+    }
+
+    *, *::before, *::after {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      background: var(--ground);
+      color: var(--text);
+      font-family: 'Space Grotesk', system-ui, sans-serif;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 2.5rem 1.5rem;
+      transition: background 200ms linear;
+    }
+
+    .app {
+      width: 100%;
+      max-width: 400px;
+      display: flex;
+      flex-direction: column;
+      gap: 2.75rem;
+    }
+
+    /* ── Title ── */
+    .title {
+      text-align: center;
+      font-size: 0.68rem;
+      font-weight: 500;
+      letter-spacing: 0.22em;
+      color: var(--dim);
+      text-transform: uppercase;
+    }
+
+    /* ── Stage ── */
+    .stage {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      position: relative;
+      height: 230px;
+    }
+
+    .bloom {
+      position: absolute;
+      width: 280px;
+      height: 280px;
+      border-radius: 50%;
+      filter: blur(72px);
+      opacity: 0;
+      pointer-events: none;
+      transition: background 60ms linear, opacity 60ms linear;
+    }
+
+    .orb {
+      width: 158px;
+      height: 158px;
+      border-radius: 50%;
+      position: relative;
+      z-index: 1;
+      background: #000;
+      /* inner highlight gives depth — top-left catch-light on a sphere */
+      background-image: radial-gradient(
+        ellipse 55% 50% at 38% 34%,
+        rgba(255,255,255,0.14) 0%,
+        transparent 70%
+      );
+      transition: box-shadow 60ms linear;
+    }
+
+    /* ── Controls ── */
+    .controls {
+      display: flex;
+      flex-direction: column;
+      gap: 1.625rem;
+    }
+
+    .channel {
+      display: flex;
+      flex-direction: column;
+      gap: 0.6rem;
+    }
+
+    .ch-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+    }
+
+    .ch-label {
+      font-size: 0.72rem;
+      font-weight: 500;
+      letter-spacing: 0.1em;
+      color: var(--dim);
+    }
+
+    .ch-value {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.82rem;
+      font-weight: 500;
+      min-width: 3ch;
+      text-align: left;
+      direction: ltr;
+      transition: color 60ms linear;
+    }
+
+    .channel-r .ch-value { color: var(--ch-r); }
+    .channel-g .ch-value { color: var(--ch-g); }
+    .channel-b .ch-value { color: var(--ch-b); }
+
+    /* ── Slider ── */
+    input[type="range"] {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 100%;
+      height: 2px;
+      border-radius: 2px;
+      outline: none;
+      cursor: pointer;
+      direction: ltr;
+    }
+
+    input[type="range"]:focus-visible {
+      outline: 2px solid rgba(255,255,255,0.2);
+      outline-offset: 6px;
+      border-radius: 4px;
+    }
+
+    .channel-r input[type="range"] {
+      background: linear-gradient(
+        to right,
+        var(--ch-r) var(--pct, 0%),
+        var(--surface2) var(--pct, 0%)
+      );
+    }
+    .channel-g input[type="range"] {
+      background: linear-gradient(
+        to right,
+        var(--ch-g) var(--pct, 0%),
+        var(--surface2) var(--pct, 0%)
+      );
+    }
+    .channel-b input[type="range"] {
+      background: linear-gradient(
+        to right,
+        var(--ch-b) var(--pct, 0%),
+        var(--surface2) var(--pct, 0%)
+      );
+    }
+
+    input[type="range"]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 15px;
+      height: 15px;
+      border-radius: 50%;
+      background: var(--text);
+      border: 2.5px solid var(--ground);
+      box-shadow: 0 1px 6px rgba(0,0,0,0.6);
+      transition: transform 100ms ease;
+    }
+
+    input[type="range"]:hover::-webkit-slider-thumb {
+      transform: scale(1.3);
+    }
+
+    input[type="range"]::-moz-range-thumb {
+      width: 15px;
+      height: 15px;
+      border-radius: 50%;
+      background: var(--text);
+      border: 2.5px solid var(--ground);
+      cursor: pointer;
+    }
+
+    /* ── Info bar ── */
+    .info {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+      background: var(--surface);
+      border: 1px solid rgba(255,255,255,0.042);
+      border-radius: 14px;
+      padding: 1rem 1.25rem;
+    }
+
+    .info-swatch {
+      width: 34px;
+      height: 34px;
+      border-radius: 9px;
+      border: 1px solid rgba(255,255,255,0.055);
+      flex-shrink: 0;
+      background: #000;
+      transition: background 60ms linear, box-shadow 60ms linear;
+    }
+
+    .info-values {
+      display: flex;
+      flex-direction: column;
+      gap: 0.22rem;
+      flex: 1;
+      direction: ltr;
+      text-align: left;
+    }
+
+    .info-hex {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 1rem;
+      font-weight: 500;
+      letter-spacing: 0.04em;
+      color: var(--text);
+    }
+
+    .info-rgb {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.68rem;
+      color: var(--dim);
+      letter-spacing: 0.02em;
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after { transition: none !important; }
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+
+    <p class="title">תמהיל אור</p>
+
+    <div class="stage">
+      <div class="bloom" id="bloom"></div>
+      <div class="orb" id="orb"></div>
+    </div>
+
+    <div class="controls">
+
+      <div class="channel channel-r">
+        <div class="ch-head">
+          <span class="ch-label">אדום</span>
+          <span class="ch-value" id="rv">0</span>
+        </div>
+        <input type="range" id="r" min="0" max="255" value="0" aria-label="אדום">
+      </div>
+
+      <div class="channel channel-g">
+        <div class="ch-head">
+          <span class="ch-label">ירוק</span>
+          <span class="ch-value" id="gv">0</span>
+        </div>
+        <input type="range" id="g" min="0" max="255" value="0" aria-label="ירוק">
+      </div>
+
+      <div class="channel channel-b">
+        <div class="ch-head">
+          <span class="ch-label">כחול</span>
+          <span class="ch-value" id="bv">0</span>
+        </div>
+        <input type="range" id="b" min="0" max="255" value="0" aria-label="כחול">
+      </div>
+
+    </div>
+
+    <div class="info">
+      <div class="info-swatch" id="swatch"></div>
+      <div class="info-values">
+        <span class="info-hex" id="hexOut">#000000</span>
+        <span class="info-rgb" id="rgbOut">rgb(0, 0, 0)</span>
+      </div>
+    </div>
+
+  </div>
+
+  <script>
+    const rEl = document.getElementById('r');
+    const gEl = document.getElementById('g');
+    const bEl = document.getElementById('b');
+    const rvEl = document.getElementById('rv');
+    const gvEl = document.getElementById('gv');
+    const bvEl = document.getElementById('bv');
+    const orb = document.getElementById('orb');
+    const bloom = document.getElementById('bloom');
+    const swatch = document.getElementById('swatch');
+    const hexOut = document.getElementById('hexOut');
+    const rgbOut = document.getElementById('rgbOut');
+
+    function hex2(n) { return n.toString(16).padStart(2, '0').toUpperCase(); }
+
+    function update() {
+      const r = +rEl.value, g = +gEl.value, b = +bEl.value;
+      const color = `rgb(${r},${g},${b})`;
+      const hexColor = `#${hex2(r)}${hex2(g)}${hex2(b)}`;
+      const brightness = (r + g + b) / (255 * 3);
+
+      // readouts
+      rvEl.textContent = r;
+      gvEl.textContent = g;
+      bvEl.textContent = b;
+
+      // orb: color + dynamic outer glow
+      const glowR = Math.round(20 + brightness * 55);
+      const glowS = Math.round(brightness * 18);
+      orb.style.boxShadow = brightness > 0.01
+        ? `0 0 ${glowR}px ${glowS}px ${color}`
+        : 'none';
+      orb.style.setProperty('--mix', color);
+
+      // update orb base color keeping the specular highlight overlay
+      orb.style.backgroundColor = color;
+
+      // bloom
+      bloom.style.background = color;
+      bloom.style.opacity = (0.06 + brightness * 0.4).toFixed(3);
+
+      // info strip
+      swatch.style.background = color;
+      swatch.style.boxShadow = brightness > 0.04
+        ? `0 0 ${Math.round(6 + brightness * 14)}px 1px ${color}`
+        : 'none';
+      hexOut.textContent = hexColor;
+      rgbOut.textContent = `rgb(${r}, ${g}, ${b})`;
+
+      // ambient room tint — the aesthetic risk:
+      // the background very subtly picks up the dominant hue as light fills the room
+      const ar = Math.round(12 + r * 0.038);
+      const ag = Math.round(12 + g * 0.028);
+      const ab = Math.round(20 + b * 0.042);
+      document.body.style.background = `rgb(${ar},${ag},${ab})`;
+
+      // slider tracks
+      rEl.style.setProperty('--pct', (r / 255 * 100).toFixed(1) + '%');
+      gEl.style.setProperty('--pct', (g / 255 * 100).toFixed(1) + '%');
+      bEl.style.setProperty('--pct', (b / 255 * 100).toFixed(1) + '%');
+    }
+
+    rEl.addEventListener('input', update);
+    gEl.addEventListener('input', update);
+    bEl.addEventListener('input', update);
+
+    update();
+  </script>
+</body>
+</html>
