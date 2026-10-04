@@ -1,0 +1,27 @@
+{
+  "name": "hebrew-rtl",
+  "version": "0.1.0",
+  "description": "Hebrew RTL display fix (visual bidi on terminals, direction isolates on rich surfaces) plus Hebrew output hygiene rules",
+  "userConfig": {
+    "terminalMode": {
+      "type": "string",
+      "title": "Terminal Hebrew mode",
+      "description": "visual: reorder Hebrew for terminals without bidi (VS Code, Windows Terminal). off: leave as is (GNOME Terminal, Konsole do bidi themselves).",
+      "options": ["visual", "off"],
+      "default": "visual"
+    },
+    "richMode": {
+      "type": "string",
+      "title": "Desktop/VS Code extension Hebrew mode",
+      "description": "isolate: wrap Hebrew lines in RLM+RLI..PDI so mixed Hebrew/English keeps its order. off: leave as is.",
+      "options": ["isolate", "off"],
+      "default": "isolate"
+    },
+    "promptRules": {
+      "type": "boolean",
+      "title": "Hebrew output rules in system prompt",
+      "description": "Adds short rules telling the model how to write Hebrew that displays cleanly.",
+      "default": true
+    }
+  }
+}
