@@ -16,6 +16,9 @@ Display only: the stored conversation and what the model reads are not changed.
 
 - Desktop / VS Code extension: alignment is CSS and a plugin cannot set `dir`. The RLM helps only when the container uses `dir="auto"`. Order is fixed, right alignment is not guaranteed.
 - Terminal: text copied from the terminal is in visual (reversed) order.
+- Desktop / VS Code extension: text copied from a Hebrew line carries the invisible RLM/RLI/PDI marks the mod added. Set `richMode: off` if you paste Claude's output into mail or documents often.
+- Terminal: rows are cut (not re-wrapped) at the viewport width minus 4 cells. If the transcript is narrower (a docked pane), the end of a row can be cut. The engine's reply bullet is not drawn on rows the mod draws itself.
+- Verified by `claude plugin test` (18 tests) against the engine's test kit, not yet visually in every terminal.
 - Terminals that already do bidi (GNOME Terminal, Konsole, mlterm) need `terminalMode: off`. Otherwise the text is reversed twice.
 - The prompt box you type into is not covered. Your prompt is fixed once it shows in the transcript.
 - On the terminal the mod draws Hebrew paragraphs itself: inline bold, inline code and links are kept, italics are not.

@@ -42,11 +42,12 @@ for (const surface of ['desktop', 'vscode'] as const) {
     let seen = ''
     on('ui.render', { component: 'AssistantMessage' }, ($, e) => {
       seen = e.props.text
-      const { Text } = $.ui.resolve(e)
-      return <Text>{e.props.text}</Text>
+      // the element the engine draws a reply with: its validation must accept the marks
+      const { Markdown } = $.ui.resolve(e)
+      return <Markdown text={e.props.text} />
     })
     const ui = await $.ui.mount({ plugin: 'hebrew-rtl', surface, component: 'AssistantMessage', props, viewport })
-    await ui.drawn()
+    expect(JSON.stringify(await ui.drawn())).toContain(RLI)
     expect(seen).toContain(`- ${RLM}${RLI}**Root cause:** ה-thermal drift מתחיל בערך שעה אחרי ה-power-up${PDI}`)
     expect(seen).toContain('English only paragraph.\n'.trimEnd())
     expect(seen).toContain('const x = "שלום"')
@@ -67,7 +68,7 @@ for (const surface of ['desktop', 'vscode'] as const) {
       props: { text: 'לדוגמה מ VSCODE', origin: { kind: 'composer' }, isExpanded: false },
       viewport,
     })
-    await ui.drawn()
+    expect(JSON.stringify(await ui.drawn())).toContain(RLI)
     expect(seen).toBe(`${RLM}${RLI}לדוגמה מ VSCODE${PDI}`)
     await ui.unmount()
   })
