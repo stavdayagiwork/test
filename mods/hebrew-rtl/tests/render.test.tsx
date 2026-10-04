@@ -73,3 +73,28 @@ for (const surface of ['desktop', 'vscode'] as const) {
     await ui.unmount()
   })
 }
+
+test('text marks: the prompt as submitted is isolated', async ($, on) => {
+  let seen = ''
+  on('prompt.submit', ($, e) => {
+    seen = e.text
+    return { isAccepted: true } as never
+  })
+  await $.prompt.submit({ text: 'אני עושה טסט ל VSCODE לטקסט', wait: false, origin: { kind: 'composer' } }).catch(() => undefined)
+  expect(seen).toBe(`${RLM}${RLI}אני עושה טסט ל VSCODE לטקסט${PDI}`)
+})
+
+test('text marks: a stored reply has its Hebrew lines isolated, code and tool blocks untouched', async ($, on) => {
+  let stored: unknown
+  on('session.append', ($, e) => {
+    stored = e.message.content
+    return { message: e.message, uuid: e.uuid }
+  })
+  await $.session.append({
+    message: { type: 'assistant', role: 'assistant', content: [{ type: 'text', text: 'סיכום ה-test\n```\nx = "שלום עולם"\n```' }] },
+    door: 'response',
+    origin: { kind: 'model', model: 'm' },
+    uuid: 'u1',
+  } as never).catch(() => undefined)
+  expect(stored).toEqual([{ type: 'text', text: `${RLM}${RLI}סיכום ה-test${PDI}\n\`\`\`\nx = "שלום עולם"\n\`\`\`` }])
+})

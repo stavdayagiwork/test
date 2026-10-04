@@ -8,9 +8,10 @@ A Claude Code mod (function-hooks plugin) that fixes how Hebrew is displayed and
 | --- | --- | --- |
 | Terminal without bidi (VS Code integrated terminal, Windows Terminal) | Hebrew letters reversed, word order wrong, left-aligned | Wraps each paragraph to the width, runs a reduced Unicode Bidi Algorithm per line, mirrors brackets, right-aligns RTL rows. Code fences, tables (per cell) and English paragraphs still go through the normal Markdown renderer. |
 | Desktop app, VS Code extension | Mixed Hebrew/English in the wrong order | Wraps every Hebrew line in `RLM + RLI ... PDI` after its markdown marker, so the order inside is right whatever direction the container has. |
+| Claude app (cloud sessions), any host that draws the conversation itself | The bubble is drawn left to right: `אני עושה טסט ל VSCODE לטקסט` comes out with its parts in the wrong order | These hosts never call the engine's drawing hooks (checked: `session.surfaces()` is empty, no `ui.render` call arrives). So the mod writes `RLM + RLI ... PDI` into the text itself: your prompt at `prompt.submit`, each reply at `session.append`. |
 | All | The model writes direction marks, `dir="rtl"` HTML, em dashes | Strips them from what is drawn (outside code), and adds short Hebrew-writing rules to the system prompt. |
 
-Display only: the stored conversation and what the model reads are not changed.
+The drawing hooks change the display only. `textMarks` (on by default) does change the stored text: it adds invisible direction marks to Hebrew lines of your prompts and Claude's replies.
 
 ## Limits
 
@@ -20,7 +21,7 @@ Display only: the stored conversation and what the model reads are not changed.
 - Terminal: rows are cut (not re-wrapped) at the viewport width minus 4 cells. If the transcript is narrower (a docked pane), the end of a row can be cut. The engine's reply bullet is not drawn on rows the mod draws itself.
 - Verified by `claude plugin test` (18 tests) against the engine's test kit, not yet visually in every terminal.
 - Terminals that already do bidi (GNOME Terminal, Konsole, mlterm) need `terminalMode: off`. Otherwise the text is reversed twice.
-- The prompt box you type into is not covered. Your prompt is fixed once it shows in the transcript.
+- The prompt box you type into is not covered: it belongs to the app or VS Code. On Windows, Ctrl + Right Shift in a Chromium text box (Claude app, VS Code) switches it to right-to-left, and Ctrl + Left Shift switches it back. Your prompt is fixed once it shows in the transcript.
 - On the terminal the mod draws Hebrew paragraphs itself: inline bold, inline code and links are kept, italics are not.
 - Direction is decided by words: 2 or more Hebrew words, or at least as many Hebrew as Latin words, makes the line RTL.
 
@@ -28,6 +29,7 @@ Display only: the stored conversation and what the model reads are not changed.
 
 - `terminalMode`: `visual` (default) or `off`
 - `richMode`: `isolate` (default) or `off`
+- `textMarks`: `true` (default) or `false`
 - `promptRules`: `true` (default) or `false`
 
 ## Install

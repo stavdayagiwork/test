@@ -1,6 +1,7 @@
 import type { Register } from 'claude-code'
 
 import {
+  BIDI_CONTROLS,
   detectBase,
   hasHebrew,
   isolateHebrew,
@@ -132,6 +133,25 @@ export function layoutPara(item: Extract<Item, { type: 'para' }>, width: number)
 export const register: Register = (on, options) => {
   const terminalOn = options.terminalMode !== 'off'
   const richOn = options.richMode !== 'off'
+  const textOn = options.textMarks !== false
+
+  // Hosts that draw the conversation themselves (the Claude app over a cloud
+  // session) never raise ui.render, so the marks go into the text itself:
+  // the person's prompt as submitted, and each reply as it is stored.
+  on('prompt.submit', async ($, e, next) => {
+    if (!textOn || !hasHebrew(e.text)) return next(e)
+    return next({ ...e, text: isolateHebrew(e.text.replace(BIDI_CONTROLS, '')) })
+  })
+
+  on('session.append', { door: 'response' }, async ($, e, next) => {
+    if (!textOn || e.agentId !== undefined || e.message.role !== 'assistant') return next(e)
+    const content = e.message.content.map(block =>
+      block.type === 'text' && typeof block.text === 'string' && hasHebrew(block.text)
+        ? { ...block, text: isolateHebrew(sanitize(block.text)) }
+        : block,
+    )
+    return next({ ...e, message: { ...e.message, content } })
+  })
 
   on('prompt.compose', async ($, e, next) => {
     const result = await next(e)

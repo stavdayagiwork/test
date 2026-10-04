@@ -17,6 +17,12 @@
       "options": ["isolate", "off"],
       "default": "isolate"
     },
+    "textMarks": {
+      "type": "boolean",
+      "title": "Direction marks in the stored text",
+      "description": "Adds RLM+RLI..PDI to Hebrew lines of your prompts and Claude's replies, for apps that draw the conversation themselves (Claude app, cloud sessions). Copied text carries the invisible marks.",
+      "default": true
+    },
     "promptRules": {
       "type": "boolean",
       "title": "Hebrew output rules in system prompt",
