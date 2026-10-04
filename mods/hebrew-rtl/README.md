@@ -19,7 +19,7 @@ The drawing hooks change the display only. `textMarks` (on by default) does chan
 - Terminal: text copied from the terminal is in visual (reversed) order.
 - Desktop / VS Code extension: text copied from a Hebrew line carries the invisible RLM/RLI/PDI marks the mod added. Set `richMode: off` if you paste Claude's output into mail or documents often.
 - Terminal: rows are cut (not re-wrapped) at the viewport width minus 4 cells. If the transcript is narrower (a docked pane), the end of a row can be cut. The engine's reply bullet is not drawn on rows the mod draws itself.
-- Verified by `claude plugin test` (18 tests) against the engine's test kit, not yet visually in every terminal.
+- Verified by `claude plugin test` (20 tests) against the engine's test kit. The text-marks path is the one that reaches the Claude app; the display paths are verified by tests only.
 - Terminals that already do bidi (GNOME Terminal, Konsole, mlterm) need `terminalMode: off`. Otherwise the text is reversed twice.
 - The prompt box you type into is not covered: it belongs to the app or VS Code. On Windows, Ctrl + Right Shift in a Chromium text box (Claude app, VS Code) switches it to right-to-left, and Ctrl + Left Shift switches it back. Your prompt is fixed once it shows in the transcript.
 - On the terminal the mod draws Hebrew paragraphs itself: inline bold, inline code and links are kept, italics are not.
