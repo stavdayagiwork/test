@@ -95,6 +95,11 @@ nav.tabs button[aria-selected="true"] { color: var(--fg); border-bottom-color: v
 .btn.primary { background: var(--accent); border-color: var(--accent); color: var(--panel); }
 .btn:disabled { opacity: 0.5; cursor: default; }
 .item.closed { opacity: 0.62; }
+.tag.t-effort-phone { background: var(--ok-soft); color: var(--ok); font-weight: 500; }
+.tag.t-effort-desk, .tag.t-effort-focus { background: var(--fyi-soft); color: var(--muted); font-weight: 500; }
+.draft { border: 1px solid var(--line); border-radius: 4px; background: var(--bg); padding: 6px 10px; }
+.draft summary { cursor: pointer; font-size: 13px; color: var(--accent); font-weight: 500; }
+.draft-text { white-space: pre-wrap; font-size: 14px; margin: 8px 0; overflow-wrap: anywhere; }
 .statuspill { font-size: 12px; font-family: var(--font-mono); padding: 1px 8px; border-radius: 4px; background: var(--ok-soft); color: var(--ok); }
 
 .empty { border: 1px dashed var(--line); border-radius: 6px; padding: 18px; color: var(--muted); background: var(--panel); }
@@ -154,6 +159,7 @@ input[type="number"] { width: 90px; }
 
   <section id="view-queue" class="group" style="gap:22px">
     <div class="filters" id="filters">
+      <button class="chip" aria-pressed="false" data-filter="phone" id="f-phone">On the move: from phone</button>
       <button class="chip" aria-pressed="false" data-filter="vip" id="f-vip">VIP only</button>
       <button class="chip" aria-pressed="false" data-filter="to" id="f-to">Sent to me (To)</button>
       <button class="chip" aria-pressed="false" data-filter="stale" id="f-stale">Stale only</button>
@@ -195,8 +201,9 @@ input[type="number"] { width: 90px; }
 <script>
 (function () {
   const $ = (id) => document.getElementById(id);
-  const state = { items: [], runs: [], config: null, configVersionDoc: null, tab: "queue", filters: { vip: false, to: false, stale: false }, canWrite: true };
+  const state = { items: [], runs: [], config: null, configVersionDoc: null, tab: "queue", filters: { phone: false, vip: false, to: false, stale: false }, canWrite: true };
   const PRI = { urgent: 0, reply: 1, fyi: 2 };
+  const EFFORT = { phone: "from phone", desk: "needs desk", focus: "needs focus block" };
   const fmtDate = (iso) => { if (!iso) return "-"; const d = new Date(iso); return d.toLocaleString("en-GB", { weekday: "short", day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit", timeZone: "Asia/Jerusalem" }); };
   const fmtDay = (iso) => { if (!iso) return "-"; return new Date(iso).toLocaleDateString("en-GB", { weekday: "short", day: "2-digit", month: "short", timeZone: "Asia/Jerusalem" }); };
 
@@ -240,6 +247,20 @@ input[type="number"] { width: 90px; }
     });
     if (stale) tags.append(el("span", { class: "tag t-stale", text: "waiting " + workdaysSince(it.receivedAt) + " work days" }));
     if (it.deadline) tags.append(el("span", { class: "tag t-deadline", text: "due " + fmtDay(it.deadline) }));
+    if (it.effort && EFFORT[it.effort]) tags.prepend(el("span", { class: "tag t-effort-" + it.effort, text: EFFORT[it.effort] }));
+
+    let draftBox = null;
+    if (it.draft && !closedView) {
+      const pre = el("div", { class: "draft-text", dir: "auto", text: it.draft });
+      const copy = el("button", { class: "btn", type: "button", text: "Copy reply" });
+      copy.addEventListener("click", async () => {
+        try { await navigator.clipboard.writeText(it.draft); copy.textContent = "Copied"; }
+        catch (e) { const r = document.createRange(); r.selectNodeContents(pre); const s = getSelection(); s.removeAllRanges(); s.addRange(r); copy.textContent = "Selected - copy it"; }
+        setTimeout(() => { copy.textContent = "Copy reply"; }, 2500);
+      });
+      draftBox = el("details", { class: "draft" }, el("summary", { text: it.draftKind === "holding" ? "Suggested holding reply" : "Suggested reply" }), pre,
+        el("div", { class: "actions" }, copy, el("span", { class: "note", text: "Fill the [brackets] before sending." })));
+    }
 
     const actions = el("div", { class: "actions" });
     if (it.webLink && /^https:\/\//.test(it.webLink)) actions.append(el("a", { class: "btn primary", href: it.webLink, target: "_blank", rel: "noopener", text: "Open in Outlook" }));
@@ -264,6 +285,7 @@ input[type="number"] { width: 90px; }
         it.summary ? el("div", { class: "summary", text: it.summary }) : null,
         closedView ? el("div", {}, el("span", { class: "statuspill", text: (it.status || "") + (it.statusBy === "agent" ? " (auto: reply detected)" : "") })) : null,
         tags.childNodes.length ? tags : null,
+        draftBox,
         actions));
   }
   function btn(label, fn) { const b = el("button", { class: "btn", type: "button", text: label }); b.disabled = !state.canWrite; b.addEventListener("click", async () => { b.disabled = true; try { await fn(); } finally { b.disabled = !state.canWrite; } }); return b; }
@@ -280,6 +302,7 @@ input[type="number"] { width: 90px; }
     if (f.vip && !(it.reasons || []).some((r) => String(r).toLowerCase().startsWith("vip"))) return false;
     if (f.to && it.role !== "to") return false;
     if (f.stale && !isStale(it)) return false;
+    if (f.phone && it.effort !== "phone") return false;
     return true;
   }
 
