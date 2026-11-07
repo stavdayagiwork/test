@@ -1,0 +1,436 @@
+<title>Inbox Triage Desk</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&family=Fraunces:opsz,wght@9..144,600&display=swap">
+<style>
+/* Layout: one working column. Summary strip on top, then a priority-ordered queue, then weekly review and settings. */
+:root {
+  --bg: #f3f4f1;
+  --panel: #ffffff;
+  --fg: #1d2328;
+  --muted: #5f6a72;
+  --line: #d9ddd8;
+  --accent: #1f5f7a;
+  --accent-soft: #e2eef3;
+  --urgent: #b4322a;
+  --urgent-soft: #f8e4e1;
+  --reply: #b7791f;
+  --reply-soft: #f7eddc;
+  --fyi: #6b7780;
+  --fyi-soft: #eceeec;
+  --ok: #2f7d4f;
+  --ok-soft: #e1f0e6;
+  --font-display: "Fraunces", Georgia, serif;
+  --font-body: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, Menlo, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #141a1e; --panel: #1c2429; --fg: #e4e8e6; --muted: #98a4ab; --line: #2e383e;
+  --accent: #6fb3cf; --accent-soft: #1d3540;
+  --urgent: #ec7a6f; --urgent-soft: #3b211f; --reply: #e0b061; --reply-soft: #372c1a;
+  --fyi: #9aa6ad; --fyi-soft: #242c31; --ok: #6cc28f; --ok-soft: #1b3326; color-scheme: dark } }
+:root[data-theme="dark"] {
+  --bg: #141a1e; --panel: #1c2429; --fg: #e4e8e6; --muted: #98a4ab; --line: #2e383e;
+  --accent: #6fb3cf; --accent-soft: #1d3540;
+  --urgent: #ec7a6f; --urgent-soft: #3b211f; --reply: #e0b061; --reply-soft: #372c1a;
+  --fyi: #9aa6ad; --fyi-soft: #242c31; --ok: #6cc28f; --ok-soft: #1b3326; color-scheme: dark }
+
+body { background: var(--bg); color: var(--fg); font-family: var(--font-body); font-size: 15px; line-height: 1.5; }
+.wrap { max-width: 980px; margin: 0 auto; padding-block: 28px 64px; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); display: grid; gap: 28px; }
+h1 { font-family: var(--font-display); font-weight: 600; font-size: 30px; margin: 0; letter-spacing: -0.01em; text-wrap: balance; }
+h2 { font-size: 13px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); margin: 0; font-weight: 600; }
+.mono { font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
+.muted { color: var(--muted); }
+button { font: inherit; cursor: pointer; }
+button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+a { color: var(--accent); }
+
+header.top { display: flex; flex-wrap: wrap; gap: 12px 24px; align-items: end; justify-content: space-between; }
+.runline { font-size: 13px; color: var(--muted); display: flex; gap: 6px 14px; flex-wrap: wrap; }
+.runline b { color: var(--fg); font-weight: 500; }
+.health { display: inline-flex; align-items: center; gap: 6px; }
+.dot { width: 8px; height: 8px; border-radius: 50%; background: var(--muted); }
+.dot.ok { background: var(--ok); } .dot.bad { background: var(--urgent); }
+
+.strip { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); border: 1px solid var(--line); background: var(--panel); border-radius: 6px; }
+.strip > div { padding: 14px 16px; border-left: 1px solid var(--line); display: grid; gap: 2px; }
+.strip > div:first-child { border-left: 0; }
+.strip .n { font-family: var(--font-display); font-size: 30px; line-height: 1.1; }
+.strip .l { font-size: 12px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em; }
+.strip .urgent .n { color: var(--urgent); } .strip .reply .n { color: var(--reply); } .strip .stale .n { color: var(--accent); }
+@media (max-width: 560px) { .strip { grid-template-columns: repeat(2, minmax(0, 1fr)); } .strip > div:nth-child(3) { border-left: 0; } .strip > div:nth-child(n+3) { border-top: 1px solid var(--line); } }
+
+nav.tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--line); overflow-x: auto; }
+nav.tabs button { background: none; border: 0; border-bottom: 2px solid transparent; padding: 8px 12px; color: var(--muted); font-weight: 500; white-space: nowrap; }
+nav.tabs button[aria-selected="true"] { color: var(--fg); border-bottom-color: var(--accent); }
+
+.filters { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.chip { border: 1px solid var(--line); background: var(--panel); color: var(--fg); padding: 3px 10px; border-radius: 999px; font-size: 13px; }
+.chip[aria-pressed="true"] { background: var(--accent-soft); border-color: var(--accent); }
+
+.group { display: grid; gap: 10px; }
+.group-head { display: flex; align-items: baseline; gap: 10px; }
+.group-head .count { font-family: var(--font-mono); font-size: 12px; color: var(--muted); }
+.list { display: grid; gap: 8px; }
+.item { display: grid; grid-template-columns: 4px minmax(0, 1fr); background: var(--panel); border: 1px solid var(--line); border-radius: 6px; overflow: hidden; }
+.item .stripe { background: var(--fyi); }
+.item.p-urgent .stripe { background: var(--urgent); }
+.item.p-reply .stripe { background: var(--reply); }
+.item .body { padding: 12px 14px; display: grid; gap: 6px; min-width: 0; }
+.item .row1 { display: flex; flex-wrap: wrap; gap: 4px 12px; align-items: baseline; justify-content: space-between; }
+.item .who { font-weight: 600; }
+.item .who .role { font-weight: 400; color: var(--muted); font-size: 12px; margin-left: 6px; font-family: var(--font-mono); }
+.item .when { font-size: 12px; color: var(--muted); }
+.item .subj { font-weight: 500; overflow-wrap: anywhere; }
+.item .ask { color: var(--fg); }
+.item .ask::before { content: "Ask: "; color: var(--muted); font-size: 13px; }
+.item .summary { color: var(--muted); font-size: 14px; }
+.tags { display: flex; flex-wrap: wrap; gap: 6px; }
+.tag { font-size: 12px; padding: 1px 8px; border-radius: 4px; background: var(--fyi-soft); color: var(--fg); }
+.tag.t-vip { background: var(--accent-soft); }
+.tag.t-deadline, .tag.t-escalation { background: var(--urgent-soft); }
+.tag.t-stale { background: var(--reply-soft); }
+.actions { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 2px; }
+.btn { border: 1px solid var(--line); background: var(--panel); color: var(--fg); padding: 4px 10px; border-radius: 4px; font-size: 13px; text-decoration: none; display: inline-flex; align-items: center; }
+.btn.primary { background: var(--accent); border-color: var(--accent); color: var(--panel); }
+.btn:disabled { opacity: 0.5; cursor: default; }
+.item.closed { opacity: 0.62; }
+.statuspill { font-size: 12px; font-family: var(--font-mono); padding: 1px 8px; border-radius: 4px; background: var(--ok-soft); color: var(--ok); }
+
+.empty { border: 1px dashed var(--line); border-radius: 6px; padding: 18px; color: var(--muted); background: var(--panel); }
+.empty b { color: var(--fg); }
+
+.digest { background: var(--panel); border: 1px solid var(--line); border-radius: 6px; padding: 16px 18px; display: grid; gap: 10px; }
+.digest h3 { margin: 0; font-family: var(--font-display); font-weight: 600; font-size: 20px; }
+.digest ul { margin: 0; padding-left: 18px; display: grid; gap: 4px; }
+.kv { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 8px 16px; font-size: 13px; }
+.kv div span { display: block; color: var(--muted); font-size: 12px; }
+
+.runs { overflow-x: auto; border: 1px solid var(--line); border-radius: 6px; background: var(--panel); }
+table { border-collapse: collapse; width: 100%; font-size: 13px; }
+th, td { text-align: left; padding: 8px 12px; border-bottom: 1px solid var(--line); white-space: nowrap; }
+th { color: var(--muted); font-weight: 500; font-size: 12px; text-transform: uppercase; letter-spacing: 0.05em; }
+td.num { font-family: var(--font-mono); text-align: right; }
+tr:last-child td { border-bottom: 0; }
+
+.settings { display: grid; gap: 18px; }
+.field { display: grid; gap: 6px; background: var(--panel); border: 1px solid var(--line); border-radius: 6px; padding: 14px 16px; }
+.field label { font-weight: 600; }
+.field p { margin: 0; color: var(--muted); font-size: 13px; }
+textarea, input[type="number"] { font: inherit; font-family: var(--font-mono); font-size: 13px; background: var(--bg); color: var(--fg); border: 1px solid var(--line); border-radius: 4px; padding: 8px; width: 100%; box-sizing: border-box; }
+textarea { min-height: 96px; resize: vertical; }
+input[type="number"] { width: 90px; }
+.savebar { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+.note { font-size: 13px; color: var(--muted); }
+.banner { border-radius: 6px; padding: 10px 14px; font-size: 14px; background: var(--reply-soft); }
+@media (prefers-reduced-motion: no-preference) { .item { transition: opacity .2s; } }
+</style>
+
+<div class="wrap">
+  <header class="top">
+    <div style="display:grid;gap:6px">
+      <h1>Inbox Triage Desk</h1>
+      <div class="runline" id="runline"><span>Waiting for the first triage run.</span></div>
+    </div>
+    <div class="runline"><span class="health"><span class="dot" id="healthDot"></span><span id="healthText">Connecting</span></span></div>
+  </header>
+
+  <div class="banner" id="banner" hidden></div>
+
+  <section class="strip" aria-label="Open items">
+    <div class="urgent"><span class="n mono" id="nUrgent">-</span><span class="l">Urgent</span></div>
+    <div class="reply"><span class="n mono" id="nReply">-</span><span class="l">Needs reply</span></div>
+    <div class="stale"><span class="n mono" id="nStale">-</span><span class="l">Stale 2+ days</span></div>
+    <div class="fyi"><span class="n mono" id="nFyi">-</span><span class="l">FYI / low</span></div>
+  </section>
+
+  <nav class="tabs" role="tablist">
+    <button role="tab" id="tab-queue" aria-selected="true" data-tab="queue">Queue</button>
+    <button role="tab" id="tab-weekly" aria-selected="false" data-tab="weekly">Weekly review</button>
+    <button role="tab" id="tab-closed" aria-selected="false" data-tab="closed">Closed</button>
+    <button role="tab" id="tab-runs" aria-selected="false" data-tab="runs">Run log</button>
+    <button role="tab" id="tab-settings" aria-selected="false" data-tab="settings">Settings</button>
+  </nav>
+
+  <section id="view-queue" class="group" style="gap:22px">
+    <div class="filters" id="filters">
+      <button class="chip" aria-pressed="false" data-filter="vip" id="f-vip">VIP only</button>
+      <button class="chip" aria-pressed="false" data-filter="to" id="f-to">Sent to me (To)</button>
+      <button class="chip" aria-pressed="false" data-filter="stale" id="f-stale">Stale only</button>
+    </div>
+    <div id="queue"></div>
+  </section>
+
+  <section id="view-weekly" class="group" hidden></section>
+  <section id="view-closed" class="group" hidden></section>
+  <section id="view-runs" class="group" hidden></section>
+
+  <section id="view-settings" class="settings" hidden>
+    <div class="field">
+      <label for="cfg-vips">VIP senders</label>
+      <p>One per line: an email, a domain (@customer.com) or a full name. Mail from these goes to Urgent when it asks something of you.</p>
+      <textarea id="cfg-vips" placeholder="manager@camtek.com&#10;@tsmc.com&#10;Danielle Alezra"></textarea>
+    </div>
+    <div class="field">
+      <label for="cfg-keywords">Escalation words</label>
+      <p>One per line, Hebrew or English. Matched in subject and body.</p>
+      <textarea id="cfg-keywords"></textarea>
+    </div>
+    <div class="field">
+      <label for="cfg-ignore">Muted senders</label>
+      <p>One per line. Mail from these is never queued (newsletters, bots you do not act on).</p>
+      <textarea id="cfg-ignore"></textarea>
+    </div>
+    <div class="field">
+      <label for="cfg-stale">Stale after (work days, Sun-Thu)</label>
+      <input type="number" id="cfg-stale" min="1" max="10" step="1" value="2">
+    </div>
+    <div class="savebar">
+      <button class="btn primary" id="saveCfg">Save settings</button>
+      <span class="note" id="cfgNote">Changes apply from the next 08:45 run.</span>
+    </div>
+  </section>
+</div>
+
+<script>
+(function () {
+  const $ = (id) => document.getElementById(id);
+  const state = { items: [], runs: [], config: null, configVersionDoc: null, tab: "queue", filters: { vip: false, to: false, stale: false }, canWrite: true };
+  const PRI = { urgent: 0, reply: 1, fyi: 2 };
+  const fmtDate = (iso) => { if (!iso) return "-"; const d = new Date(iso); return d.toLocaleString("en-GB", { weekday: "short", day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit", timeZone: "Asia/Jerusalem" }); };
+  const fmtDay = (iso) => { if (!iso) return "-"; return new Date(iso).toLocaleDateString("en-GB", { weekday: "short", day: "2-digit", month: "short", timeZone: "Asia/Jerusalem" }); };
+
+  // Work days elapsed (Sun-Thu) between an ISO time and now, Israel calendar.
+  function workdaysSince(iso) {
+    if (!iso) return 0;
+    const fmt = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Jerusalem", year: "numeric", month: "2-digit", day: "2-digit" });
+    const start = new Date(fmt.format(new Date(iso)) + "T00:00:00Z");
+    const end = new Date(fmt.format(new Date()) + "T00:00:00Z");
+    let n = 0;
+    for (let d = new Date(start.getTime() + 86400000); d <= end; d = new Date(d.getTime() + 86400000)) {
+      const wd = d.getUTCDay(); if (wd >= 0 && wd <= 4) n++;
+    }
+    return n;
+  }
+  function staleLimit() { return (state.config && state.config.staleWorkdays) || 2; }
+  function isOpen(it) {
+    if (it.status === "open") return true;
+    if (it.status === "snoozed") return it.snoozeUntil && new Date(it.snoozeUntil) <= new Date();
+    return false;
+  }
+  function isStale(it) { return isOpen(it) && it.priority !== "fyi" && workdaysSince(it.receivedAt) >= staleLimit(); }
+
+  function el(tag, attrs, ...kids) {
+    const e = document.createElement(tag);
+    if (attrs) for (const [k, v] of Object.entries(attrs)) {
+      if (v == null || v === false) continue;
+      if (k === "class") e.className = v; else if (k === "text") e.textContent = v; else e.setAttribute(k, v === true ? "" : v);
+    }
+    for (const k of kids) if (k != null) e.append(k);
+    return e;
+  }
+
+  function itemCard(it, closedView) {
+    const stale = isStale(it);
+    const tags = el("div", { class: "tags" });
+    (it.reasons || []).forEach((r) => {
+      const key = String(r).toLowerCase();
+      const cls = key.startsWith("vip") ? "t-vip" : key.includes("deadline") ? "t-deadline" : (key.includes("escalat") || key.includes("customer")) ? "t-escalation" : "";
+      tags.append(el("span", { class: "tag " + cls, text: r }));
+    });
+    if (stale) tags.append(el("span", { class: "tag t-stale", text: "waiting " + workdaysSince(it.receivedAt) + " work days" }));
+    if (it.deadline) tags.append(el("span", { class: "tag t-deadline", text: "due " + fmtDay(it.deadline) }));
+
+    const actions = el("div", { class: "actions" });
+    if (it.webLink && /^https:\/\//.test(it.webLink)) actions.append(el("a", { class: "btn primary", href: it.webLink, target: "_blank", rel: "noopener", text: "Open in Outlook" }));
+    if (!closedView) {
+      actions.append(btn("Done", () => setStatus(it, { status: "done" })));
+      actions.append(btn("Snooze 1 day", () => setStatus(it, { status: "snoozed", snoozeUntil: nextWorkdayMorning() })));
+      actions.append(btn("Not for me", () => setStatus(it, { status: "dismissed" })));
+      if (it.fromEmail) actions.append(btn("Mute sender", () => muteSender(it)));
+    } else {
+      actions.append(btn("Reopen", () => setStatus(it, { status: "open" })));
+    }
+
+    const role = it.role ? el("span", { class: "role", text: it.role.toUpperCase() }) : null;
+    return el("article", { class: "item p-" + (it.priority || "fyi") + (closedView ? " closed" : "") },
+      el("div", { class: "stripe" }),
+      el("div", { class: "body" },
+        el("div", { class: "row1" },
+          el("span", { class: "who" }, document.createTextNode(it.fromName || it.fromEmail || "Unknown sender"), role),
+          el("span", { class: "when mono", text: fmtDate(it.receivedAt) + (it.msgCount > 1 ? "  ·  " + it.msgCount + " msgs" : "") })),
+        el("div", { class: "subj", text: it.subject || "(no subject)" }),
+        it.ask ? el("div", { class: "ask", text: it.ask }) : null,
+        it.summary ? el("div", { class: "summary", text: it.summary }) : null,
+        closedView ? el("div", {}, el("span", { class: "statuspill", text: (it.status || "") + (it.statusBy === "agent" ? " (auto: reply detected)" : "") })) : null,
+        tags.childNodes.length ? tags : null,
+        actions));
+  }
+  function btn(label, fn) { const b = el("button", { class: "btn", type: "button", text: label }); b.disabled = !state.canWrite; b.addEventListener("click", async () => { b.disabled = true; try { await fn(); } finally { b.disabled = !state.canWrite; } }); return b; }
+
+  function nextWorkdayMorning() {
+    const d = new Date(Date.now() + 86400000);
+    while ([5, 6].includes(d.getUTCDay())) d.setTime(d.getTime() + 86400000);
+    d.setUTCHours(5, 0, 0, 0); // 07:00-08:00 Israel, before the morning run
+    return d.toISOString();
+  }
+
+  function matchesFilters(it) {
+    const f = state.filters;
+    if (f.vip && !(it.reasons || []).some((r) => String(r).toLowerCase().startsWith("vip"))) return false;
+    if (f.to && it.role !== "to") return false;
+    if (f.stale && !isStale(it)) return false;
+    return true;
+  }
+
+  function renderQueue() {
+    const open = state.items.filter(isOpen).filter(matchesFilters)
+      .sort((a, b) => (PRI[a.priority] ?? 3) - (PRI[b.priority] ?? 3) || (isStale(b) - isStale(a)) || String(a.receivedAt).localeCompare(String(b.receivedAt)));
+    const root = $("queue"); root.replaceChildren();
+    if (!state.loaded) { root.append(el("div", { class: "empty", text: "Loading your queue." })); return; }
+    if (!state.items.length) {
+      root.append(el("div", { class: "empty" }, el("b", { text: "No triaged mail yet. " }), document.createTextNode("The morning run (Sun-Thu, 08:45 Israel time) scans mail where you are in To or CC, drops notifications and newsletters, and lists every thread still waiting on you here, urgent first.")));
+      return;
+    }
+    const groups = [["urgent", "Urgent - answer first"], ["reply", "Needs your reply"], ["fyi", "FYI / low priority"]];
+    let any = false;
+    for (const [p, title] of groups) {
+      const rows = open.filter((i) => (i.priority || "fyi") === p);
+      if (!rows.length) continue; any = true;
+      root.append(el("div", { class: "group" },
+        el("div", { class: "group-head" }, el("h2", { text: title }), el("span", { class: "count", text: String(rows.length) })),
+        el("div", { class: "list" }, ...rows.map((r) => itemCard(r, false)))));
+    }
+    if (!any) root.append(el("div", { class: "empty" }, el("b", { text: "Queue clear. " }), document.createTextNode("Nothing open matches the current filters.")));
+  }
+
+  function renderStrip() {
+    const open = state.items.filter(isOpen);
+    $("nUrgent").textContent = state.loaded ? open.filter((i) => i.priority === "urgent").length : "-";
+    $("nReply").textContent = state.loaded ? open.filter((i) => i.priority === "reply").length : "-";
+    $("nStale").textContent = state.loaded ? open.filter(isStale).length : "-";
+    $("nFyi").textContent = state.loaded ? open.filter((i) => i.priority === "fyi").length : "-";
+    document.querySelector(".strip .stale .l").textContent = "Stale " + staleLimit() + "+ days";
+  }
+
+  function renderRunline() {
+    const rl = $("runline"); rl.replaceChildren();
+    const last = state.runs[0];
+    if (!last) { rl.append(el("span", { text: "Waiting for the first triage run." })); $("healthDot").className = "dot"; $("healthText").textContent = state.loaded ? "No runs yet" : "Connecting"; return; }
+    rl.append(el("span", {}, document.createTextNode("Last run "), el("b", { text: fmtDate(last.ranAt) })));
+    rl.append(el("span", {}, document.createTextNode("covered "), el("b", { class: "mono", text: fmtDate(last.windowFrom) + " to " + fmtDate(last.windowTo) })));
+    rl.append(el("span", { text: (last.scanned ?? 0) + " mails scanned, " + (last.filteredNoise ?? 0) + " noise dropped" }));
+    const ageH = (Date.now() - new Date(last.ranAt).getTime()) / 3600000;
+    const ok = last.ok !== false && ageH < 80;
+    $("healthDot").className = "dot " + (ok ? "ok" : "bad");
+    $("healthText").textContent = last.ok === false ? "Last run reported a problem" : ageH >= 80 ? "No run in over 3 days" : "Runs healthy";
+  }
+
+  function renderWeekly() {
+    const root = $("view-weekly"); root.replaceChildren();
+    const wk = state.runs.find((r) => r.kind === "weekly");
+    if (!wk) { root.append(el("div", { class: "empty" }, el("b", { text: "No weekly review yet. " }), document.createTextNode("Every Sunday morning the run also reviews the previous week: threads you never answered, who is waiting longest, and recurring asks."))); return; }
+    const box = el("div", { class: "digest" }, el("h3", { text: "Week of " + fmtDay(wk.weekFrom || wk.windowFrom) }));
+    box.append(el("div", { class: "kv" },
+      kv("Mails to you", wk.weekReceived), kv("Needed a reply", wk.weekNeededReply), kv("Answered", wk.weekAnswered), kv("Still open", wk.weekStillOpen), kv("Median reply time", wk.weekMedianReplyHours != null ? wk.weekMedianReplyHours + " h" : "-")));
+    if (Array.isArray(wk.digest) && wk.digest.length) box.append(el("ul", {}, ...wk.digest.map((t) => el("li", { text: t }))));
+    root.append(box);
+    const carried = state.items.filter(isOpen).filter((i) => workdaysSince(i.receivedAt) >= 3).sort((a, b) => String(a.receivedAt).localeCompare(String(b.receivedAt)));
+    root.append(el("div", { class: "group-head" }, el("h2", { text: "Carried over from last week" }), el("span", { class: "count", text: String(carried.length) })));
+    root.append(carried.length ? el("div", { class: "list" }, ...carried.map((r) => itemCard(r, false))) : el("div", { class: "empty", text: "Nothing older than 3 work days is open." }));
+  }
+  function kv(label, v) { return el("div", {}, el("span", { text: label }), el("b", { class: "mono", text: v == null ? "-" : String(v) })); }
+
+  function renderClosed() {
+    const root = $("view-closed"); root.replaceChildren();
+    const rows = state.items.filter((i) => !isOpen(i)).sort((a, b) => String(b.statusAt || "").localeCompare(String(a.statusAt || ""))).slice(0, 60);
+    root.append(el("div", { class: "group-head" }, el("h2", { text: "Closed in the last 30 days" }), el("span", { class: "count", text: String(rows.length) })));
+    root.append(rows.length ? el("div", { class: "list" }, ...rows.map((r) => itemCard(r, true))) : el("div", { class: "empty", text: "Items you mark done, or that the run sees you replied to, appear here." }));
+  }
+
+  function renderRuns() {
+    const root = $("view-runs"); root.replaceChildren();
+    if (!state.runs.length) { root.append(el("div", { class: "empty", text: "Each scheduled run writes one line here: its time window, how much mail it scanned and what it changed." })); return; }
+    const t = el("table", {}, el("thead", {}, el("tr", {}, ...["Run", "Kind", "Window from", "Scanned", "Noise", "New", "Auto-closed", "Status"].map((h) => el("th", { text: h })))));
+    const tb = el("tbody");
+    state.runs.slice(0, 40).forEach((r) => tb.append(el("tr", {},
+      el("td", { class: "mono", text: fmtDate(r.ranAt) }), el("td", { text: r.kind || "daily" }), el("td", { class: "mono", text: fmtDate(r.windowFrom) }),
+      el("td", { class: "num", text: String(r.scanned ?? "-") }), el("td", { class: "num", text: String(r.filteredNoise ?? "-") }),
+      el("td", { class: "num", text: String(r.newItems ?? "-") }), el("td", { class: "num", text: String(r.autoClosed ?? "-") }),
+      el("td", { text: r.ok === false ? ("problem: " + (r.notes || "")) : "ok" }))));
+    t.append(tb);
+    root.append(el("div", { class: "runs" }, t));
+  }
+
+  function renderSettings() {
+    if (!state.config || document.activeElement && document.activeElement.closest && document.activeElement.closest("#view-settings")) return;
+    const c = state.config;
+    $("cfg-vips").value = (c.vips || []).join("\n");
+    $("cfg-keywords").value = (c.urgentKeywords || []).join("\n");
+    $("cfg-ignore").value = (c.ignoreSenders || []).join("\n");
+    $("cfg-stale").value = c.staleWorkdays || 2;
+  }
+
+  function renderAll() { renderStrip(); renderRunline(); renderQueue(); renderWeekly(); renderClosed(); renderRuns(); renderSettings(); }
+
+  // Tabs and filters
+  document.querySelectorAll("nav.tabs button").forEach((b) => b.addEventListener("click", () => {
+    state.tab = b.dataset.tab;
+    document.querySelectorAll("nav.tabs button").forEach((x) => x.setAttribute("aria-selected", String(x === b)));
+    ["queue", "weekly", "closed", "runs", "settings"].forEach((v) => { $("view-" + v).hidden = v !== state.tab; });
+    try { localStorage.setItem("triage.tab", state.tab); } catch (e) {}
+  }));
+  try { const t = localStorage.getItem("triage.tab"); if (t) { const b = document.querySelector('nav.tabs button[data-tab="' + t + '"]'); if (b) b.click(); } } catch (e) {}
+  document.querySelectorAll("#filters .chip").forEach((c) => c.addEventListener("click", () => {
+    const k = c.dataset.filter; state.filters[k] = !state.filters[k]; c.setAttribute("aria-pressed", String(state.filters[k])); renderQueue();
+  }));
+
+  let db = null;
+  async function setStatus(it, patch) {
+    if (!db) return;
+    const body = Object.assign({}, patch, { statusBy: "user", statusAt: new Date().toISOString() });
+    if (patch.status !== "snoozed") body.snoozeUntil = null;
+    try { await db.doc("items/" + it._id).update(body); }
+    catch (e) { showBanner("Could not save that change (" + (e && e.code || "error") + "). Reload and try again."); }
+  }
+  async function muteSender(it) {
+    if (!db) return;
+    const c = Object.assign({ vips: [], urgentKeywords: [], ignoreSenders: [], staleWorkdays: 2 }, state.config || {});
+    const list = Array.from(new Set([...(c.ignoreSenders || []), it.fromEmail.toLowerCase()]));
+    try {
+      await db.doc("config/main").set(Object.assign({}, c, { ignoreSenders: list, updatedAt: new Date().toISOString() }));
+      await setStatus(it, { status: "dismissed" });
+    } catch (e) { showBanner("Could not mute this sender (" + (e && e.code || "error") + ")."); }
+  }
+  $("saveCfg").addEventListener("click", async () => {
+    if (!db) return;
+    const lines = (id) => $(id).value.split("\n").map((s) => s.trim()).filter(Boolean);
+    const stale = Math.min(10, Math.max(1, parseInt($("cfg-stale").value, 10) || 2));
+    const next = { vips: lines("cfg-vips"), urgentKeywords: lines("cfg-keywords"), ignoreSenders: lines("cfg-ignore").map((s) => s.toLowerCase()), staleWorkdays: stale, updatedAt: new Date().toISOString() };
+    $("saveCfg").disabled = true;
+    try { await db.doc("config/main").set(next); $("cfgNote").textContent = "Saved. Applies from the next run."; }
+    catch (e) { $("cfgNote").textContent = "Not saved (" + (e && e.code || "error") + "). Try again."; }
+    finally { $("saveCfg").disabled = false; document.activeElement && document.activeElement.blur && document.activeElement.blur(); }
+  });
+
+  function showBanner(t) { const b = $("banner"); b.textContent = t; b.hidden = false; }
+
+  renderAll();
+  (async () => {
+    db = window.claude && window.claude.use ? await window.claude.use("db") : null;
+    const user = window.claude && window.claude.use ? await window.claude.use("user") : null;
+    if (!db) { state.loaded = true; $("healthText").textContent = "Data unavailable"; showBanner("This view cannot reach the triage data. Open the page signed in as its owner."); renderAll(); return; }
+    try { if (user && user.can) { const w = await user.can("data.write"); if (w === false) state.canWrite = false; } } catch (e) {}
+    const timer = setTimeout(() => { if (!state.loaded) showBanner("The triage data is taking long to load. It may be out of date."); }, 10000);
+    db.collection("items").onSnapshot((snap) => {
+      state.items = snap.docs.map((d) => Object.assign({ _id: d.id }, d.data()));
+      if (!snap.metadata.fromCache) { state.loaded = true; clearTimeout(timer); }
+      renderAll();
+    }, (e) => { state.loaded = true; showBanner("Lost the live connection to the queue (" + e.code + "). Reload the page."); renderAll(); });
+    db.collection("runs").orderBy("ranAt", "desc").limit(60).onSnapshot((snap) => {
+      state.runs = snap.docs.map((d) => d.data()); renderAll();
+    }, () => {});
+    db.doc("config/main").onSnapshot((snap) => { state.config = snap.exists ? snap.data() : null; renderAll(); }, () => {});
+  })();
+})();
+</script>
