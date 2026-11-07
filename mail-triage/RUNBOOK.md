@@ -47,6 +47,8 @@ Dashboard URL (use as `url` in every ArtifactData call): https://claude.ai/artif
 
 ### 0. Setup
 1. Load tools: ToolSearch `select:mcp__Microsoft_365__outlook_email_search,mcp__Microsoft_365__read_resource,ArtifactData`.
+   If the Microsoft 365 tools are not available, write runs/<Israel date>_<kind> with ok false and notes
+   "Microsoft 365 connector not available in the scheduled session", do not move state, and stop.
 2. Run `date -u +%Y-%m-%dT%H:%M:%SZ` and `TZ=Asia/Jerusalem date +%F_%u` to get NOW (UTC) and today's Israel date
    and weekday (%u: 7 = Sunday). Work days are Sun-Thu.
 3. ArtifactData `get` config/main and state/agent. If config is missing use
@@ -90,6 +92,7 @@ attendance and payroll, expense or HR approval systems). Keep them as `fyi` with
 - role = "to" if stavd@camtek.com is in toRecipients, else "cc".
 - Group by conversationId. Per thread keep the LATEST inbound message as the representative; msgCount = inbound
   messages from this thread seen in the window plus the item's previous msgCount if it already exists.
+- Doc id = "c_" + conversationId with every character outside [A-Za-z0-9_-] removed.
 
 ### 5. Classify each thread
 Decide `needsMe`: true when the latest inbound message asks Stav (by name - Stav / סתיו / סטב - or as a direct To
@@ -116,6 +119,10 @@ Write for each item (English, short, even when the mail is in Hebrew):
 - `ask`: one line, imperative, what Stav must do ("Send Gen9 & Hawk TDI training slides to Evgenii").
 - `summary`: at most 2 sentences of context. No secrets, no full quotes, no attachments content.
 - `reasons`: array of short strings as above (empty for plain reply).
+
+Item fields: subject, fromName, fromEmail, receivedAt, webLink, role, priority, reasons[], ask, summary, deadline (ISO
+date or null), msgCount, conversationId, lastMessageUri, status ("open"|"done"|"snoozed"|"dismissed"|"replied"),
+statusBy ("user"|"agent"), statusAt, snoozeUntil, repliedAt, firstSeenAt, lastSeenAt.
 
 Default urgent keywords: urgent, ASAP, critical, blocker, escalation, customer, down, stopped, failure, deadline,
 דחוף, בהקדם, מיידי, קריטי, תקלה, לקוח, עצירה.
@@ -160,7 +167,7 @@ For each classified thread, compute doc id. Then:
 - digest: 3 to 6 short English bullets with real names and subjects: who has waited longest, any customer or
   deadline risk still open, recurring asks (same person or topic 2+ times), and one concrete suggestion for Sunday
   morning (for example "Block 30 min for the 3 slide requests - one reply covers all").
-- Run kind = "weekly" and include weekFrom, weekTo and the fields above.
+- Run kind = "weekly" and include weekFrom, weekTo and the fields above. Other days kind = "daily".
 
 ### 10. Write the run record and state
 - `runs/<Israel date>_<kind>` (for example `2026-11-08_weekly`; `set`; get it first and pin if_version if it exists): kind, ranAt NOW, windowFrom, windowTo, ok true,
