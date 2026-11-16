@@ -114,7 +114,7 @@
       <label>Vector shown</label>
       <select id="mode">
         <option value="abs">Shift (ShiftX, ShiftY) per scan</option>
-        <option value="ref">Change vs first scan</option>
+        <option value="ref" selected>Change vs first scan</option>
         <option value="prev">Change vs previous scan</option>
         <option value="mean">Deviation from per-die mean</option>
       </select>
@@ -151,12 +151,12 @@
     </div>
     <div class="ctl">
       <label>Arrow length scale <span id="scaleVal"></span></label>
-      <input type="range" id="scale" min="0.2" max="4" step="0.05" value="1">
+      <input type="range" id="scale" min="0.2" max="4" step="0.05" value="1.1">
       <div class="hint">1× = 95th-percentile vector ≈ 0.9 die pitch</div>
     </div>
     <div class="ctl">
       <label>Colour range max <span id="cmaxVal"></span></label>
-      <input type="range" id="cmax" min="0.2" max="2" step="0.05" value="1">
+      <input type="range" id="cmax" min="0.2" max="2" step="0.05" value="0.7">
       <div class="hint">1× = 99th percentile over all scans (fixed across time)</div>
     </div>
     <div class="ctl" id="thrCtl">
@@ -330,7 +330,7 @@ function hsl(a){return `hsl(${((a*180/Math.PI)+360)%360},80%,45%)`;}
 
 // ---- state & UI
 const $=id=>document.getElementById(id);
-const st={view:'2d',mesh:false,t:0,mode:'abs',cmode:'mag',scale:1,cmax:1,playing:false,trail:false,trailN:10,speed:6,thr:0,thrBelow:'dim',thrStretch:true,udAxis:'y',udPos:'#e0301e',udNeg:'#1f5fd6',udNeu:'#9aa3b2',udDead:0,udShade:true};
+const st={view:'2d',mesh:false,t:0,mode:'ref',cmode:'mag',scale:1.1,cmax:0.7,playing:false,trail:false,trailN:10,speed:6,thr:0,thrBelow:'dim',thrStretch:true,udAxis:'y',udPos:'#e0301e',udNeg:'#1f5fd6',udNeu:'#9aa3b2',udDead:0,udShade:true};
 $('slider').max=T-1;
 
 const map=$('map'); let mctx=map.getContext('2d');
@@ -740,7 +740,7 @@ $('cmax').oninput=e=>{st.cmax=+e.target.value;$('cmaxVal').textContent=st.cmax.t
 $('trail').onchange=e=>{st.trail=e.target.checked;draw()};
 $('trailN').onchange=e=>{st.trailN=Math.max(2,+e.target.value||10);draw()};
 $('speed').oninput=e=>{st.speed=+e.target.value;$('spdVal').textContent=st.speed};
-$('scaleVal').textContent='1.00×';$('cmaxVal').textContent='1.00×';$('spdVal').textContent=st.speed;
+$('scaleVal').textContent=st.scale.toFixed(2)+'×';$('cmaxVal').textContent=st.cmax.toFixed(2)+'×';$('mode').value=st.mode;$('scale').value=st.scale;$('cmax').value=st.cmax;$('spdVal').textContent=st.speed;
 let timer=null;
 function togglePlay(){st.playing=!st.playing;$('play').textContent=st.playing?'❚❚ Pause':'▶ Play';if($('mgPlay'))$('mgPlay').textContent=st.playing?'❚❚ Pause':'▶ Play';
   if(st.playing){ if(st.t>=T-1) setT(0); let last=performance.now();
