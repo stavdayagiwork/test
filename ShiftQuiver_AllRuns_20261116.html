@@ -70,6 +70,12 @@
   #mgmt .mbox{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:12px}
   #mgmt .mbox h3{margin:0 0 6px;font-size:15px}
   #mgmt .mleg{color:var(--mute);font-size:13px;margin-top:6px;line-height:1.5}
+  #mgmt .mtime{position:sticky;top:0;z-index:5;display:flex;align-items:center;gap:10px;background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:10px 14px;margin-bottom:14px;box-shadow:0 2px 6px rgba(0,0,0,.05)}
+  #mgmt .mtime button{font-size:15px;padding:7px 14px}
+  #mgmt .mtime input[type=range]{flex:1;height:26px}
+  #mgmt .mtime .lbl{font-size:16px;font-weight:700;min-width:250px;font-variant-numeric:tabular-nums}
+  #mgmt .mtime .lbl small{display:block;font-weight:400;color:var(--mute);font-size:12px}
+  @media print{#mgmt .mtime{display:none}}
   #mgmt .mnote{margin-top:14px;background:#fffbea;border:1px solid #f0e2a8;border-radius:8px;padding:10px 14px;font-size:14px;white-space:pre-wrap}
   @media print{#tabs,header{display:none}#mgmt{padding:0}body{background:#fff}}
   @media (max-width:900px){#mgmt .mrow{grid-template-columns:1fr}#mgmtCfg .grid{grid-template-columns:1fr}}
@@ -231,6 +237,7 @@
       <label><input type="checkbox" data-m="map" checked> Wafer map</label>
       <label><input type="checkbox" data-m="trend" checked> Trend chart</label>
       <label><input type="checkbox" data-m="band"> Tolerance band on chart</label>
+      <label><input type="checkbox" data-m="slider" checked> Time slider + Play</label>
       <label><input type="checkbox" data-m="scaninfo" checked> Scan / date line</label>
       <label><input type="checkbox" data-m="note"> Presenter note</label>
     </div>
@@ -248,6 +255,13 @@
   <div id="mgmt">
     <h2 id="mgTitle"></h2>
     <div class="msub" id="mgSub"></div>
+    <div class="mtime" id="mgTime">
+      <button id="mgPlay" class="primary">▶ Play</button>
+      <button id="mgPrev" title="Previous scan">◀</button><button id="mgNext" title="Next scan">▶</button>
+      <div class="lbl" id="mgLbl"></div>
+      <input type="range" id="mgSlider" min="0" step="1" value="0">
+      <button id="mgFirst" title="Go to first scan">Start</button><button id="mgLast" title="Go to last scan">End</button>
+    </div>
     <div class="cards" id="mgCards"></div>
     <div class="msum" id="mgSum"></div>
     <div class="mrow" id="mgRow">
@@ -684,7 +698,7 @@ map.addEventListener('mousemove',e=>{
 });
 map.addEventListener('mouseleave',()=>$('tip').style.display='none');
 
-function setT(t){st.t=Math.max(0,Math.min(T-1,t)); draw();}
+function setT(t){st.t=Math.max(0,Math.min(T-1,t)); if(typeof curTab!=='undefined'&&curTab==='mgmt') renderMgmt(); else draw();}
 $('slider').addEventListener('input',e=>setT(+e.target.value));
 $('prevB').onclick=()=>setT(st.t-1); $('nextB').onclick=()=>setT(st.t+1);
 $('mode').onchange=e=>{st.mode=e.target.value;TR.tol=null;syncThr();draw()};
@@ -725,16 +739,16 @@ $('trailN').onchange=e=>{st.trailN=Math.max(2,+e.target.value||10);draw()};
 $('speed').oninput=e=>{st.speed=+e.target.value;$('spdVal').textContent=st.speed};
 $('scaleVal').textContent='1.00×';$('cmaxVal').textContent='1.00×';$('spdVal').textContent=st.speed;
 let timer=null;
-function togglePlay(){st.playing=!st.playing;$('play').textContent=st.playing?'❚❚ Pause':'▶ Play';
+function togglePlay(){st.playing=!st.playing;$('play').textContent=st.playing?'❚❚ Pause':'▶ Play';if($('mgPlay'))$('mgPlay').textContent=st.playing?'❚❚ Pause':'▶ Play';
   if(st.playing){ if(st.t>=T-1) setT(0); let last=performance.now();
     const loop=now=>{ if(!st.playing)return; if(now-last>=1000/st.speed){last=now; if(st.t>=T-1){togglePlay();return;} setT(st.t+1);} timer=requestAnimationFrame(loop);};
     timer=requestAnimationFrame(loop);} else cancelAnimationFrame(timer);}
 $('play').onclick=togglePlay;
-document.addEventListener('keydown',e=>{if(curTab==='mgmt'||e.target.tagName==='TEXTAREA'||(e.target.tagName==='INPUT'&&(e.target.type==='number'||e.target.type==='text')))return;
+document.addEventListener('keydown',e=>{if((curTab==='mgmt'&&!MG.slider)||e.target.tagName==='TEXTAREA'||(e.target.tagName==='INPUT'&&(e.target.type==='number'||e.target.type==='text')))return;
   if(e.key==='ArrowRight'){setT(st.t+1);e.preventDefault()} else if(e.key==='ArrowLeft'){setT(st.t-1);e.preventDefault()} else if(e.key===' '){togglePlay();e.preventDefault()}});
 window.addEventListener('resize',resize);
 // ================= Management view =================
-const MG={cards:true,summary:true,map:true,trend:true,band:false,scaninfo:true,note:false};
+const MG={cards:true,summary:true,map:true,trend:true,band:false,scaninfo:true,note:false,slider:true};
 try{const sv=JSON.parse(localStorage.getItem('qmMgmt')||'null'); if(sv){Object.assign(MG,sv.MG||{}); ['mTitle','mSub','mUnit','mNote'].forEach(k=>{if(sv[k]!=null)$(k).value=sv[k];});}}catch(e){}
 document.querySelectorAll('#mgmtCfg [data-m]').forEach(cb=>{cb.checked=!!MG[cb.dataset.m]; cb.onchange=e=>{MG[e.target.dataset.m]=e.target.checked;saveMg();}});
 ['mTitle','mSub','mUnit','mNote'].forEach(k=>$(k).addEventListener('input',saveMg));
@@ -745,6 +759,9 @@ function setTab(t){curTab=t; $('engView').style.display=t==='eng'?'':'none'; $('
   if(st.playing) togglePlay(); if(t==='mgmt') renderMgmt(); else resize();}
 $('tabEng').onclick=()=>setTab('eng'); $('tabMgmt').onclick=()=>setTab('mgmt'); $('mGo').onclick=()=>{setTab('mgmt');window.scrollTo(0,0);};
 $('mPrint').onclick=()=>window.print();
+$('mgSlider').addEventListener('input',e=>setT(+e.target.value));
+$('mgPlay').onclick=togglePlay; $('mgPrev').onclick=()=>setT(st.t-1); $('mgNext').onclick=()=>setT(st.t+1);
+$('mgFirst').onclick=()=>setT(0); $('mgLast').onclick=()=>setT(T-1);
 const esc=t=>String(t).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 function fmtV(v,d=3){const u=$('mUnit').value.trim(); return (Math.abs(v)<5*Math.pow(10,-d-1)?0:v).toFixed(d)+(u?' '+u:'');}
 const SERNAME={mean:'Average shift (all dies)',sx:'Spread in X (std)',sy:'Spread in Y (std)',max:'Largest single-die shift'};
@@ -761,6 +778,11 @@ function mgStatus(md){
 }
 function renderMgmt(){
   const md=modeData(st.mode), S=mgStatus(md), tr=S.tr, t=st.t, ser=SERNAME[TR.ser];
+  $('mgTime').style.display=MG.slider?'':'none';
+  if(MG.slider){$('mgSlider').max=T-1; $('mgSlider').value=t;
+    const stab=tr.settled>=0&&t>=tr.settled;
+    $('mgLbl').innerHTML=`${esc(fmtDur(TMIN[t]))} after start <small>scan ${t+1} of ${T} · ${esc(D.times[t])}${tr.settled>=0?(stab?' · <span style="color:#127a57">in stable period</span>':' · <span style="color:#b26b00">before stabilising</span>'):''}</small>`;
+    $('mgPlay').textContent=st.playing?'❚❚ Pause':'▶ Play';}
   $('mgTitle').textContent=$('mTitle').value||'Wafer shift stability';
   const sub=[$('mSub').value.trim()];
   if(MG.scaninfo) sub.push(`${T} scans, ${D.times[0]} to ${D.times[T-1]} (${fmtDur(TMIN[T-1])})`+(t!==T-1?` · showing scan ${t+1} (${D.times[t]})`:' · showing last scan'));
@@ -773,7 +795,7 @@ function renderMgmt(){
       [S.cls,S.state,'Status ('+ser.toLowerCase()+')'],
       [settled?'g':'r',settled?fmtDur(TMIN[tr.settled]):'-',settled?`Time to stabilise (scan ${tr.settled+1} of ${T})`:'Did not stabilise in this data'],
       ['',fmtV(S.vNow),`${ser} at ${t===T-1?'end':'scan '+(t+1)}`],
-      [Math.abs(S.pct)>10?'a':'',(S.pct>=0?'+':'')+S.pct.toFixed(0)+'%','Change vs start of run'],
+      (st.mode==='ref'||st.mode==='prev')?['',(S.vNow-S.v0>=0?'+':'')+fmtV(S.vNow-S.v0),'Change vs start of run']:[Math.abs(S.pct)>10?'a':'',(S.pct>=0?'+':'')+S.pct.toFixed(0)+'%','Change vs start of run'],
     ];
     if(tr.post) cards.push([Math.abs(tr.post.delta)>tr.tol?'a':'g',(tr.post.perH>=0?'+':'')+fmtV(tr.post.perH)+'/h','Remaining drift after stabilising']);
     $('mgCards').innerHTML=cards.map(([c,b,sp])=>`<div class="mcard ${c}"><b>${esc(b)}</b><span>${esc(sp)}</span></div>`).join('');
@@ -784,7 +806,7 @@ function renderMgmt(){
     const lines=[];
     lines.push(`<b>${esc(S.state)}.</b> ${esc(S.why)}`);
     if(tr.settled>=0) lines.push(`The ${esc(ser.toLowerCase())} reached a stable level after <b>${esc(fmtDur(TMIN[tr.settled]))}</b> (scan ${tr.settled+1} of ${T}).`);
-    lines.push(`Over the whole run it went from ${esc(fmtV(S.v0))} to ${esc(fmtV(S.arr[T-1]))} (${S.pct>=0?'+':''}${S.pct.toFixed(0)}% at the scan shown).`);
+    lines.push(`Over the whole run it went from ${esc(fmtV(S.v0))} to ${esc(fmtV(S.arr[T-1]))}`+((st.mode==='ref'||st.mode==='prev')?'.':` (${S.pct>=0?'+':''}${S.pct.toFixed(0)}% at the scan shown).`));
     lines.push(`<span style="color:var(--mute);font-size:13px">Stability rule: ${TR.crit==='hold'?'every later value':'each window of '+tr.N+' consecutive scans'} within ±${esc(fmtV(tr.tol))}${TR.crit==='drift'?` and drift below ${esc(fmtV(TR.drift))}/h`:''}.</span>`);
     $('mgSum').innerHTML=lines.join(' ');
   }
