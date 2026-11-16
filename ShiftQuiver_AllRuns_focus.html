@@ -87,7 +87,28 @@
         <option value="dir">Direction (angle)</option>
         <option value="x">ShiftX (signed)</option>
         <option value="y">ShiftY (signed)</option>
+        <option value="ud">Two colours: up / down (or right / left)</option>
       </select>
+    </div>
+    <div class="ctl" id="udCtl" style="display:none">
+      <label>Two-colour settings</label>
+      <div class="row" style="margin-bottom:4px">
+        <select id="udAxis" style="flex:1">
+          <option value="y">Split by Y: up / down</option>
+          <option value="x">Split by X: right / left</option>
+        </select>
+      </div>
+      <div class="row" style="margin-bottom:4px">
+        <input type="color" id="udPos" value="#e0301e" style="width:34px;height:26px;padding:0;border:1px solid var(--line)"><span id="udPosL" style="flex:1">Up (+Y)</span>
+        <input type="color" id="udNeg" value="#1f5fd6" style="width:34px;height:26px;padding:0;border:1px solid var(--line)"><span id="udNegL" style="flex:1">Down (−Y)</span>
+      </div>
+      <div class="row" style="margin-bottom:4px">
+        <span style="white-space:nowrap">Neutral band ±</span><input type="number" id="udDead" value="0" min="0" step="0.005" style="width:80px">
+        <input type="color" id="udNeu" value="#9aa3b2" style="width:34px;height:26px;padding:0;border:1px solid var(--line)" title="Colour for arrows inside the neutral band">
+      </div>
+      <label class="row" style="font-weight:400"><input type="checkbox" id="udShade" checked> Shade by size (pale = small, full = large)</label>
+      <button id="udSwap" style="margin-top:4px">Swap colours</button>
+      <div class="hint">Colour follows the sign of the Y (or X) component of each arrow. Arrows with |component| inside the neutral band get the neutral colour. In 3D the height is the signed component.</div>
     </div>
     <div class="ctl">
       <label>Arrow length scale <span id="scaleVal"></span></label>
@@ -224,7 +245,7 @@ function hsl(a){return `hsl(${((a*180/Math.PI)+360)%360},80%,45%)`;}
 
 // ---- state & UI
 const $=id=>document.getElementById(id);
-const st={view:'2d',mesh:false,t:0,mode:'abs',cmode:'mag',scale:1,cmax:1,playing:false,trail:false,trailN:10,speed:6,thr:0,thrBelow:'dim',thrStretch:true};
+const st={view:'2d',mesh:false,t:0,mode:'abs',cmode:'mag',scale:1,cmax:1,playing:false,trail:false,trailN:10,speed:6,thr:0,thrBelow:'dim',thrStretch:true,udAxis:'y',udPos:'#e0301e',udNeg:'#1f5fd6',udNeu:'#9aa3b2',udDead:0,udShade:true};
 $('slider').max=T-1;
 
 const map=$('map'), mctx=map.getContext('2d');
@@ -251,7 +272,8 @@ const G=new Int32Array(NGX*NGY).fill(-1); for(let i=0;i<N;i++) G[GY[i]*NGX+GX[i]
 
 // ---- focus threshold
 // basis value compared against st.thr: |v| for mag/dir colour, |dx| for X, |dy| for Y
-function thrVal(a,b){return st.cmode==='x'?Math.abs(a):st.cmode==='y'?Math.abs(b):Math.hypot(a,b);}
+function eC(){return st.cmode==='ud'?st.udAxis:st.cmode;} // 'ud' acts as signed X or Y for height, range, threshold
+function thrVal(a,b){const c=eC();return c==='x'?Math.abs(a):c==='y'?Math.abs(b):Math.hypot(a,b);}
 function passes(a,b){return !(st.thr>0) || thrVal(a,b)>=st.thr;}
 function thrActive(){return st.thr>0;}
 // colour-scale lower bound (0 unless stretching from threshold); clamp so range never collapses
@@ -268,9 +290,18 @@ function colourFor(md,a,b){
   if(!passes(a,b)) return DIM;
   if(st.cmode==='mag') return turbo(nrm(Math.hypot(a,b),md.p99*st.cmax));
   if(st.cmode==='dir') return hsl(Math.atan2(b,a));
+  if(st.cmode==='ud') return st.udAxis==='x'?udColour(a,md.p99x*st.cmax):udColour(b,md.p99y*st.cmax);
   if(st.cmode==='x') return diverg(nrm(a,md.p99x*st.cmax));
   return diverg(nrm(b,md.p99y*st.cmax));
 }
+// two-colour mode: sign picks the colour; optional shading mixes toward white for small values
+function hex2rgb(h){const n=parseInt(h.slice(1),16);return [(n>>16)&255,(n>>8)&255,n&255];}
+function udColour(v,vmax){
+  if(!isFinite(v)) return st.udNeu;
+  if(Math.abs(v)<=st.udDead) return st.udNeu;
+  const c=hex2rgb(v>0?st.udPos:st.udNeg); if(!st.udShade) return `rgb(${c[0]},${c[1]},${c[2]})`;
+  const f=0.3+0.7*Math.min(1,Math.abs(nrm(v,vmax))); // 30% colour at 0, full colour at the range max
+  return `rgb(${(255+(c[0]-255)*f)|0},${(255+(c[1]-255)*f)|0},${(255+(c[2]-255)*f)|0})`;}
 function arrow(ctx,x0,y0,x1,y1,col,lw){
   const dx=x1-x0, dy=y1-y0, len=Math.hypot(dx,dy); if(len<0.3) return;
   const hl=Math.min(len*0.4, 4+lw*2), ang=Math.atan2(dy,dx);
@@ -291,9 +322,9 @@ function draw(){
 
 // ---------- 3D surface / mesh ----------
 function heightOf(md,i,t){const a=md.VX[i*T+t], b=md.VY[i*T+t];
-  return st.cmode==='x'?a:st.cmode==='y'?b:Math.hypot(a,b);}
-function vmaxOf(md){return (st.cmode==='x'?md.p99x:st.cmode==='y'?md.p99y:md.p99)*st.cmax;}
-function valColour(v,vmax){return st.cmode==='x'||st.cmode==='y'?diverg(nrm(v,vmax)):turbo(nrm(v,vmax));}
+  const c=eC(); return c==='x'?a:c==='y'?b:Math.hypot(a,b);}
+function vmaxOf(md){const c=eC(); return (c==='x'?md.p99x:c==='y'?md.p99y:md.p99)*st.cmax;}
+function valColour(v,vmax){if(st.cmode==='ud') return udColour(v,vmax); return st.cmode==='x'||st.cmode==='y'?diverg(nrm(v,vmax)):turbo(nrm(v,vmax));}
 function draw3D(md){
   const ctx=mctx, t=st.t, vmax=vmaxOf(md);
   const cx=(xmin+xmax)/2, cy=(ymin+ymax)/2, R=Math.max(xmax-xmin,ymax-ymin)/2+pitch*0.8;
@@ -338,7 +369,7 @@ function draw3D(md){
   }
   ctx.restore();
   ctx.fillStyle='#6b7383'; ctx.font='11px system-ui';
-  const hl=st.cmode==='x'?'ShiftX':st.cmode==='y'?'ShiftY':'|v|';
+  const hl=eC()==='x'?'X component':eC()==='y'?'Y component':'|v|';
   ctx.fillText(`3D ${st.mesh?'mesh':'surface'} · height = ${hl}`+(thrActive()?` · focus ≥ ${st.thr}`:''),10,16);
 }
 
@@ -396,16 +427,17 @@ function drawColourbar(md){
     ctx.fillText('angle',x+8,y0-10); ctx.fillText('+X',cx+r+4,cy+4); ctx.fillText('+Y',cx-7,cy-r-6);
     return;
   }
-  const div=st.cmode!=='mag';
-  const vmax=st.cmode==='mag'?md.p99*st.cmax:st.cmode==='x'?md.p99x*st.cmax:md.p99y*st.cmax;
+  const div=st.cmode!=='mag', ud=st.cmode==='ud';
+  const vmax=vmaxOf(md);
   const clo=cLo(vmax), chi=cHi(vmax);
   // bar position f (0 bottom .. 1 top) -> data value
   const fv=f=>div?(f>=0.5?1:-1)*(clo+Math.abs(f*2-1)*(chi-clo)):clo+f*(chi-clo);
-  for(let j=0;j<h;j++){const f=1-j/h, v=fv(f); ctx.fillStyle=div?diverg(nrm(v,vmax)):turbo(nrm(v,vmax)); ctx.fillRect(x,y0+j,w,1.5);}
+  for(let j=0;j<h;j++){const f=1-j/h, v=fv(f); ctx.fillStyle=ud?udColour(v,vmax):div?diverg(nrm(v,vmax)):turbo(nrm(v,vmax)); ctx.fillRect(x,y0+j,w,1.5);}
   ctx.strokeStyle='#cfd5df'; ctx.lineWidth=1; ctx.strokeRect(x,y0,w,h);
   ctx.fillStyle='#1d2330';
-  const lab=st.cmode==='mag'?'|v|':st.cmode==='x'?'X':'Y';
+  const lab=ud?(st.udAxis==='y'?'Y  ▲ up':'X  ▶ right'):st.cmode==='mag'?'|v|':st.cmode==='x'?'X':'Y';
   ctx.fillText(lab,x,y0-10);
+  if(ud){ctx.fillStyle='#6b7383'; ctx.fillText(st.udAxis==='y'?'▼ down':'◀ left',x,y0+h+(thrActive()?44:16)); ctx.fillStyle='#1d2330';}
   for(let q=0;q<=4;q++){const v=fv(1-q/4); ctx.fillText((div&&clo>0&&q===2?'±'+clo.toFixed(3):v.toFixed(3)),x+w+4,y0+h*q/4+4);}
   if(thrActive()&&!st.thrStretch&&st.thr<vmax){ // mark threshold on unstretched bar
     ctx.strokeStyle='#1d2330'; ctx.lineWidth=1.5;
@@ -579,7 +611,15 @@ function setT(t){st.t=Math.max(0,Math.min(T-1,t)); draw();}
 $('slider').addEventListener('input',e=>setT(+e.target.value));
 $('prevB').onclick=()=>setT(st.t-1); $('nextB').onclick=()=>setT(st.t+1);
 $('mode').onchange=e=>{st.mode=e.target.value;TR.tol=null;syncThr();draw()};
-$('cmode').onchange=e=>{st.cmode=e.target.value;syncThr();draw()};
+$('cmode').onchange=e=>{st.cmode=e.target.value;$('udCtl').style.display=st.cmode==='ud'?'':'none';syncThr();draw()};
+function udLabels(){const y=st.udAxis==='y';$('udPosL').textContent=y?'Up (+Y)':'Right (+X)';$('udNegL').textContent=y?'Down (−Y)':'Left (−X)';}
+$('udAxis').onchange=e=>{st.udAxis=e.target.value;udLabels();syncThr();draw()};
+$('udPos').oninput=e=>{st.udPos=e.target.value;draw()};
+$('udNeg').oninput=e=>{st.udNeg=e.target.value;draw()};
+$('udNeu').oninput=e=>{st.udNeu=e.target.value;draw()};
+$('udDead').onchange=e=>{const v=+e.target.value;st.udDead=isFinite(v)&&v>0?v:0;e.target.value=st.udDead;draw()};
+$('udShade').onchange=e=>{st.udShade=e.target.checked;draw()};
+$('udSwap').onclick=()=>{[st.udPos,st.udNeg]=[st.udNeg,st.udPos];$('udPos').value=st.udPos;$('udNeg').value=st.udNeg;draw()};
 $('trSer').onchange=e=>{TR.ser=e.target.value;TR.tol=null;draw()};
 $('trW').onchange=e=>{TR.W=Math.max(3,Math.min(T,+e.target.value||10));e.target.value=TR.W;draw()};
 $('trN').onchange=e=>{TR.N=Math.max(2,Math.min(T,+e.target.value||10));e.target.value=TR.N;draw()};
@@ -588,9 +628,9 @@ $('trAuto').onclick=()=>{TR.tol=null;draw()};
 $('trShow').onchange=e=>{TR.show=e.target.checked;draw()};
 $('trCrit').onchange=e=>{TR.crit=e.target.value;$('trDriftF').style.display=TR.crit==='drift'?'':'none';draw()};
 $('trDrift').onchange=e=>{const v=+e.target.value;TR.drift=isFinite(v)&&v>=0?v:0.01;draw()};
-function thrBasisLabel(){return st.cmode==='x'?'|dx|':st.cmode==='y'?'|dy|':'|v|';}
+function thrBasisLabel(){const c=eC();return c==='x'?'|dx|':c==='y'?'|dy|':'|v|';}
 // slider range: 0 .. 1.5 x the 99th percentile of the current basis (number box accepts any value)
-function syncThr(){const md=modeData(st.mode), p=st.cmode==='x'?md.p99x:st.cmode==='y'?md.p99y:md.p99;
+function syncThr(){const md=modeData(st.mode), c=eC(), p=c==='x'?md.p99x:c==='y'?md.p99y:md.p99;
   const sl=$('thr'); sl.max=(p*1.5).toPrecision(3); sl.step=(p/1000).toPrecision(2); sl.value=Math.min(st.thr,+sl.max);
   $('thrBasis').textContent=thrBasisLabel();}
 function setThr(v){v=+v; st.thr=isFinite(v)&&v>0?+v.toPrecision(4):0; $('thrNum').value=st.thr; $('thr').value=Math.min(st.thr,+$('thr').max); draw();}
