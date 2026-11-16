@@ -448,8 +448,8 @@ function drawColourbar(md){
 }
 
 // ---------- trend / stability ----------
-// timestamps 'MM-DD HH:MM:SS' (no year) -> minutes from first scan
-const TMIN=(()=>{const p=D.times.map(s=>{const m=/(\d+)-(\d+)\s+(\d+):(\d+):(\d+)/.exec(s);return m?new Date(2001,+m[1]-1,+m[2],+m[3],+m[4],+m[5]).getTime():NaN;});
+// timestamps 'DD-MM HH:MM:SS' (no year) -> minutes from first scan
+const TMIN=(()=>{const p=D.times.map(s=>{const m=/(\d+)-(\d+)\s+(\d+):(\d+):(\d+)/.exec(s);return m?new Date(2001,+m[2]-1,+m[1],+m[3],+m[4],+m[5]).getTime():NaN;});
   const ok=p.every(isFinite); return p.map((v,i)=>ok?(v-p[0])/60000:i);})();
 const TR={ser:'mean',W:10,N:10,tol:null,show:true,crit:'band',drift:0.01};
 function serNoise(arr){ // robust scan-to-scan sigma: MAD of first differences / (0.6745*sqrt2)
