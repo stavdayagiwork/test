@@ -80,6 +80,9 @@
   #mgmt .mnote{margin-top:14px;background:#fffbea;border:1px solid #f0e2a8;border-radius:8px;padding:10px 14px;font-size:14px;white-space:pre-wrap}
   @media print{#tabs,header{display:none}#mgmt{padding:0}body{background:#fff}}
   @media (max-width:900px){#mgmt .mrow{grid-template-columns:1fr}#mgmtCfg .grid{grid-template-columns:1fr}}
+  body.big .wrap{grid-template-columns:1fr}
+  body.big #panelCard{order:3} body.big #timebar{order:2;grid-column:1}
+  body.big #mgmtCfg{order:4}
   @media (max-width:900px){.wrap{grid-template-columns:1fr}#timebar{grid-column:1}}
 </style>
 </head>
@@ -104,12 +107,14 @@
       <button id="zIn" title="Zoom in">＋</button>
       <button id="zOut" title="Zoom out">－</button>
       <button id="zReset" title="Reset view">Reset view</button>
+      <span class="sep"></span>
+      <button id="bBig" title="Full-width map; settings move below the chart">⤢ Large map</button>
       <span class="hint" id="navHint"></span>
     </div>
     <canvas id="map"></canvas>
     <div id="tip"></div>
   </div>
-  <div class="card">
+  <div class="card" id="panelCard">
     <div class="ctl">
       <label>Vector shown</label>
       <select id="mode">
@@ -256,6 +261,7 @@
       <label><input type="checkbox" data-m="cards" checked> Status cards</label>
       <label><input type="checkbox" data-m="summary" checked> Plain-language summary</label>
       <label><input type="checkbox" data-m="map" checked> Wafer map</label>
+      <label><input type="checkbox" data-m="bigmap" checked> Large map (full width, chart below)</label>
       <label><input type="checkbox" data-m="trend" checked> Trend chart</label>
       <label><input type="checkbox" data-m="band"> Tolerance band on chart</label>
       <label><input type="checkbox" data-m="mmcards" checked> Average &amp; largest value cards</label>
@@ -359,7 +365,8 @@ function resize(){
   if(typeof curTab!=='undefined'&&curTab!=='eng') return; // engineering canvases are hidden
   const w=map.parentElement.clientWidth-24;
   const dpr=window.devicePixelRatio||1;
-  const h=Math.min(w, window.innerHeight-330);
+  const big=document.body.classList.contains('big');
+  const h=big?Math.max(window.innerHeight-120,Math.min(w*0.62,1100))  /* large mode may exceed a short screen: scroll */:Math.max(480,Math.min(w,window.innerHeight-160));
   map.style.height=h+'px'; map.width=w*dpr; map.height=h*dpr; mctx.setTransform(dpr,0,0,dpr,0,0);
   const ts=$('ts'); const tw=ts.parentElement.clientWidth-24; ts.width=tw*dpr; ts.height=170*dpr; ts.style.height='170px'; ts.getContext('2d').setTransform(dpr,0,0,dpr,0,0);
   const cbW=70, pad=pitch;
@@ -750,6 +757,7 @@ map.addEventListener('dblclick',resetView);
 $('zIn').onclick=()=>zoomAt(1.4,(L.cbX-12)/2,L.h/2);
 $('zOut').onclick=()=>zoomAt(1/1.4,(L.cbX-12)/2,L.h/2);
 $('zReset').onclick=resetView;
+$('bBig').onclick=()=>{document.body.classList.toggle('big');$('bBig').classList.toggle('on');$('bBig').textContent=document.body.classList.contains('big')?'⤡ Normal map':'⤢ Large map';resize();$('mapCard').scrollIntoView({block:'start'});};
 function setNavHint(){$('navHint').textContent=st.view==='3d'?'Drag: rotate · Shift/right-drag: pan · Wheel: zoom · Double-click: reset':'Wheel: zoom at cursor · Drag: pan · Double-click: reset';
   map.classList.toggle('grab',true);}
 $('b3d').onclick=()=>{st.view=st.view==='3d'?'2d':'3d';$('b3d').classList.toggle('on',st.view==='3d');$('b3d').textContent=st.view==='3d'?'2D quiver':'3D view';
@@ -830,7 +838,7 @@ document.addEventListener('keydown',e=>{if((curTab==='mgmt'&&!MG.slider)||e.targ
   if(e.key==='ArrowRight'){setT(st.t+1);e.preventDefault()} else if(e.key==='ArrowLeft'){setT(st.t-1);e.preventDefault()} else if(e.key===' '){togglePlay();e.preventDefault()}});
 window.addEventListener('resize',resize);
 // ================= Management view =================
-const MG={cards:true,summary:true,map:true,trend:true,band:false,scaninfo:true,note:false,slider:true,mmcards:true,mmchart:true};
+const MG={cards:true,summary:true,map:true,trend:true,band:false,scaninfo:true,note:false,slider:true,mmcards:true,mmchart:true,bigmap:true};
 try{const sv=JSON.parse(localStorage.getItem('qmMgmt')||'null'); if(sv){Object.assign(MG,sv.MG||{}); ['mTitle','mSub','mUnit','mNote'].forEach(k=>{if(sv[k]!=null)$(k).value=sv[k];});}}catch(e){}
 document.querySelectorAll('#mgmtCfg [data-m]').forEach(cb=>{cb.checked=!!MG[cb.dataset.m]; cb.onchange=e=>{MG[e.target.dataset.m]=e.target.checked;saveMg();}});
 ['mTitle','mSub','mUnit','mNote'].forEach(k=>$(k).addEventListener('input',saveMg));
@@ -897,11 +905,11 @@ function renderMgmt(){
   }
   // layout of map / trend
   $('mgMapBox').style.display=MG.map?'':'none'; $('mgTrBox').style.display=MG.trend?'':'none';
-  $('mgRow').style.display=(MG.map||MG.trend)?'':'none'; $('mgRow').classList.toggle('one',!(MG.map&&MG.trend));
+  $('mgRow').style.display=(MG.map||MG.trend)?'':'none'; $('mgRow').classList.toggle('one',!(MG.map&&MG.trend)||MG.bigmap);
   $('mgNote').style.display=MG.note&&$('mNote').value.trim()?'':'none'; $('mgNote').textContent=$('mNote').value;
   const dpr=window.devicePixelRatio||1;
   if(MG.map&&$('mgMap').parentElement.clientWidth>200){
-    const c=$('mgMap'), w=c.parentElement.clientWidth-24, h=Math.max(220,Math.min(w*0.92,window.innerHeight*0.62));
+    const c=$('mgMap'), w=c.parentElement.clientWidth-24, h=MG.bigmap?Math.max(420,Math.min(w*0.8,window.innerHeight-90)):Math.max(220,Math.min(w*0.92,window.innerHeight*0.62));
     c.style.height=h+'px'; c.width=w*dpr; c.height=h*dpr; const ctx=c.getContext('2d'); ctx.setTransform(dpr,0,0,dpr,0,0);
     const saveC=mctx, saveL=L; mctx=ctx;
     const cbW=70,pad=pitch,plotW=w-cbW-20,plotH=h-20,s2=Math.min(plotW/(xmax-xmin+2*pad),plotH/(ymax-ymin+2*pad));
@@ -919,7 +927,7 @@ function renderMgmt(){
     $('mgMapLeg').textContent=leg.join(' ');
   }
   if(MG.trend&&$('mgTr').parentElement.clientWidth>200){
-    const c=$('mgTr'), w=c.parentElement.clientWidth-24, h=MG.map?Math.min(w*0.75,window.innerHeight*0.5):260;
+    const c=$('mgTr'), w=c.parentElement.clientWidth-24, h=MG.map&&!MG.bigmap?Math.min(w*0.75,window.innerHeight*0.5):Math.max(260,Math.min(360,window.innerHeight*0.4));
     c.style.height=h+'px'; c.width=w*dpr; c.height=h*dpr; const ctx=c.getContext('2d'); ctx.setTransform(dpr,0,0,dpr,0,0);
     drawMgTrend(ctx,w,h,S);
     const LN=mgLines(), NM={mean:'average shift',max:'largest shift',sx:'spread X',sy:'spread Y'};
