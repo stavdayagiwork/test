@@ -159,9 +159,11 @@
     </div>
     <canvas id="ts" height="170"></canvas>
     <div class="legend">
-      <span><i class="sw" style="background:#2f6fed"></i>Mean |vector|</span>
-      <span><i class="sw" style="background:#e8743b"></i>Std X</span>
-      <span><i class="sw" style="background:#19a979"></i>Std Y</span>
+      <label class="row" style="gap:4px"><input type="checkbox" class="tsSer" data-k="mean" checked><i class="sw" style="background:#2f6fed"></i>Mean |v|</label>
+      <label class="row" style="gap:4px"><input type="checkbox" class="tsSer" data-k="max" checked><i class="sw" style="background:#7b4fd6"></i>Max |v|</label>
+      <label class="row" style="gap:4px"><input type="checkbox" class="tsSer" data-k="sx" checked><i class="sw" style="background:#e8743b"></i>Std X</label>
+      <label class="row" style="gap:4px"><input type="checkbox" class="tsSer" data-k="sy" checked><i class="sw" style="background:#19a979"></i>Std Y</label>
+      <label class="row" style="gap:4px" title="Max is usually several times larger than the others; a separate right-hand axis keeps the other lines readable"><input type="checkbox" id="tsMaxAx" checked>Max on right axis</label>
       <span>Click the chart to jump to a scan · ←/→ step · Space play/pause</span>
     </div>
     <div id="trend">
@@ -481,27 +483,35 @@ function trendCalc(md){
 }
 function fmtDur(min){const m=Math.round(min);return m>=60?`${Math.floor(m/60)}h ${m%60}m`:`${m} min`;}
 
+const TSV={mean:true,max:true,sx:true,sy:true}; let TSMAXAX=true;
 const tsC=$('ts');
 function drawTS(){
-  const md=modeData(st.mode), ctx=tsC.getContext('2d'), W=L.tw, H=170, pl=44, pr=10, pt=8, pb=22;
+  const md=modeData(st.mode), ctx=tsC.getContext('2d'), W=L.tw, H=170, pl=44, pt=8, pb=22; let pr=10;
   ctx.clearRect(0,0,W,H);
-  const S=md.series, all=[...S.mean,...S.sx,...S.sy,...(TR.ser==='max'&&TR.show?S.max:[])].filter(isFinite);
-  const vmax=Math.max(...all)*1.08, vmin=0;
-  const X=t=>pl+(W-pl-pr)*(T>1?t/(T-1):0), Y=v=>pt+(H-pt-pb)*(1-(v-vmin)/(vmax-vmin));
+  const S=md.series, vis=TSV, maxR=vis.max&&TSMAXAX;
+  const leftKeys=['mean','sx','sy'].filter(k=>vis[k]).concat(vis.max&&!maxR?['max']:[]);
+  let all=[];leftKeys.forEach(k=>{all=all.concat(S[k])}); all=all.filter(isFinite);
+  const vmax=(all.length?Math.max(...all):(maxR?1:1))*1.08, vmin=0;
+  const vmax2=maxR?Math.max(...S.max.filter(isFinite))*1.08:1;
+  if(maxR) pr=46;
+  const X=t=>pl+(W-pl-pr)*(T>1?t/(T-1):0), Y=v=>pt+(H-pt-pb)*(1-(v-vmin)/(vmax-vmin)), Y2=v=>pt+(H-pt-pb)*(1-v/vmax2);
+  const Yk=k=>k==='max'&&maxR?Y2:Y;  // y-mapping for a given series
   ctx.font='10px system-ui'; ctx.fillStyle='#6b7383'; ctx.strokeStyle='#eef0f4'; ctx.lineWidth=1;
-  for(let q=0;q<=4;q++){const v=vmin+(vmax-vmin)*q/4, y=Y(v); ctx.beginPath();ctx.moveTo(pl,y);ctx.lineTo(W-pr,y);ctx.stroke(); ctx.fillText(v.toFixed(3),4,y+3);}
+  for(let q=0;q<=4;q++){const v=vmin+(vmax-vmin)*q/4, y=Y(v); ctx.beginPath();ctx.moveTo(pl,y);ctx.lineTo(W-pr,y);ctx.stroke(); if(leftKeys.length) ctx.fillText(v.toFixed(3),4,y+3);
+    if(maxR){ctx.fillStyle='#7b4fd6'; ctx.fillText((vmax2*q/4).toFixed(3),W-pr+4,Y2(vmax2*q/4)+3); ctx.fillStyle='#6b7383';}}
   const step=Math.max(1,Math.round(T/12));
   for(let t=0;t<T;t+=step){ctx.fillText(D.runs[t],X(t)-6,H-6);}
-  [[S.mean,'#2f6fed'],[S.sx,'#e8743b'],[S.sy,'#19a979']].forEach(([arr,c])=>{
-    ctx.strokeStyle=c; ctx.lineWidth=1.6; ctx.beginPath(); arr.forEach((v,t)=>{t?ctx.lineTo(X(t),Y(v)):ctx.moveTo(X(t),Y(v))}); ctx.stroke();});
+  const COL={mean:'#2f6fed',max:'#7b4fd6',sx:'#e8743b',sy:'#19a979'};
+  ['max','sx','sy','mean'].filter(k=>vis[k]).forEach(k=>{const Yf=Yk(k);
+    ctx.strokeStyle=COL[k]; ctx.lineWidth=1.6; ctx.setLineDash(k==='max'&&maxR?[5,2]:[]); ctx.beginPath(); S[k].forEach((v,t)=>{t?ctx.lineTo(X(t),Yf(v)):ctx.moveTo(X(t),Yf(v))}); ctx.stroke(); ctx.setLineDash([]);});
+  if(!['mean','max','sx','sy'].some(k=>vis[k])){ctx.fillStyle='#6b7383';ctx.fillText('All series hidden - tick one in the legend',pl+10,pt+20);}
   ctx.strokeStyle='#1d2330'; ctx.lineWidth=1.2; ctx.beginPath(); ctx.moveTo(X(st.t),pt); ctx.lineTo(X(st.t),H-pb); ctx.stroke();
-  ctx.fillStyle='#1d2330'; ctx.beginPath(); ctx.arc(X(st.t),Y(S.mean[st.t]),3.5,0,7); ctx.fill();
+  ['mean','max','sx','sy'].filter(k=>vis[k]).forEach(k=>{ctx.fillStyle=COL[k]; ctx.beginPath(); ctx.arc(X(st.t),Yk(k)(S[k][st.t]),3,0,7); ctx.fill();});
   tsC._X=X; tsC._pl=pl; tsC._pr=pr;
   // ---- trend overlay
   const tr=trendCalc(md), arr=tr.arr, sl=slopeAt(arr,st.t,Math.max(3,TR.W));
   const serCol={mean:'#2f6fed',sx:'#e8743b',sy:'#19a979',max:'#7b4fd6'}[TR.ser];
-  if(TR.ser==='max'&&TR.show){ // max is not on the base chart: draw it scaled into the chart if it fits
-    ctx.save();ctx.setLineDash([2,2]);ctx.strokeStyle=serCol;ctx.lineWidth=1.2;ctx.beginPath();arr.forEach((v,t)=>{const yy=Y(v);t?ctx.lineTo(X(t),yy):ctx.moveTo(X(t),yy)});ctx.stroke();ctx.restore();}
+  {const Y=Yk(TR.ser); // overlay drawn on the analysed series' own axis
   if(TR.show){
     ctx.save();
     // stable window starts: thin green strip at the bottom of the plot
@@ -520,7 +530,7 @@ function drawTS(){
     if(sl){ctx.strokeStyle='#1d2330';ctx.lineWidth=2;ctx.setLineDash([5,3]);ctx.beginPath();
       ctx.moveTo(X(sl.a),Y(sl.c+sl.b*TMIN[sl.a]));ctx.lineTo(X(sl.t),Y(sl.c+sl.b*TMIN[sl.t]));ctx.stroke();ctx.setLineDash([]);}
     ctx.restore();
-  }
+  }}
   // ---- text output
   const out=[];
   if(sl){
@@ -626,6 +636,8 @@ $('trN').onchange=e=>{TR.N=Math.max(2,Math.min(T,+e.target.value||10));e.target.
 $('trTol').onchange=e=>{const v=+e.target.value;TR.tol=isFinite(v)&&v>=0?v:null;draw()};
 $('trAuto').onclick=()=>{TR.tol=null;draw()};
 $('trShow').onchange=e=>{TR.show=e.target.checked;draw()};
+document.querySelectorAll('.tsSer').forEach(cb=>cb.onchange=e=>{TSV[e.target.dataset.k]=e.target.checked;drawTS()});
+$('tsMaxAx').onchange=e=>{TSMAXAX=e.target.checked;drawTS()};
 $('trCrit').onchange=e=>{TR.crit=e.target.value;$('trDriftF').style.display=TR.crit==='drift'?'':'none';draw()};
 $('trDrift').onchange=e=>{const v=+e.target.value;TR.drift=isFinite(v)&&v>=0?v:0.01;draw()};
 function thrBasisLabel(){const c=eC();return c==='x'?'|dx|':c==='y'?'|dy|':'|v|';}
