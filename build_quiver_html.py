@@ -29,7 +29,8 @@ print(f'magnitude check: {nchk} values, max |sqrt(X²+Y²)-Mag| = {mx:.2e}; miss
 gaps=[int(b)-int(a) for a,b in zip(rx,rx[1:]) if a.isdigit() and b.isdigit()]
 print('run-number gaps >1:', sum(g>1 for g in gaps))
 r4=lambda v: None if v is None else round(v,4)
-data={'runs':rx,'times':tx,'pts':[[round(a,1),round(b,1)] for a,b in px],'dx':[[r4(v) for v in row] for row in X],'dy':[[r4(v) for v in row] for row in Y]}
+import os, datetime
+data={'src':os.path.basename(src),'built':datetime.datetime.now().strftime('%Y-%m-%d %H:%M'),'runs':rx,'times':tx,'pts':[[round(a,1),round(b,1)] for a,b in px],'dx':[[r4(v) for v in row] for row in X],'dy':[[r4(v) for v in row] for row in Y]}
 js=json.dumps(data,separators=(',',':'))
 html=open(tpl,encoding='utf-8').read()
 html,n=re.subn(r'(<script id="data" type="application/json">).*?(</script>)',lambda m:m.group(1)+js+m.group(2),html,count=1,flags=re.S)
