@@ -1,0 +1,978 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>2D Shift Quiver Map – All Runs (focus threshold)</title>
+<style>
+  :root{--bg:#f6f7f9;--panel:#fff;--ink:#1d2330;--mute:#6b7383;--line:#dfe3ea;--acc:#2f6fed}
+  *{box-sizing:border-box}
+  body{margin:0;font:13px/1.4 system-ui,-apple-system,Segoe UI,Roboto,sans-serif;background:var(--bg);color:var(--ink)}
+  header{padding:12px 18px;border-bottom:1px solid var(--line);background:var(--panel);display:flex;gap:18px;align-items:baseline;flex-wrap:wrap}
+  header h1{font-size:16px;margin:0}
+  header .sub{color:var(--mute)}
+  .wrap{display:grid;grid-template-columns:1fr 290px;gap:14px;padding:14px 18px}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:12px}
+  #mapCard{position:relative}
+  canvas{display:block;width:100%}
+  #map{cursor:crosshair}
+  .ctl{margin-bottom:12px}
+  .ctl label{display:block;font-weight:600;margin-bottom:4px}
+  .ctl .hint{color:var(--mute);font-size:11px}
+  select,input[type=number]{width:100%;padding:5px 6px;border:1px solid var(--line);border-radius:5px;font:inherit;background:#fff}
+  input[type=range]{width:100%}
+  .row{display:flex;gap:8px;align-items:center}
+  button{font:inherit;padding:6px 12px;border:1px solid var(--line);background:#fff;border-radius:5px;cursor:pointer}
+  button.primary{background:var(--acc);color:#fff;border-color:var(--acc)}
+  .stats{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+  .stat{background:var(--bg);border-radius:6px;padding:6px 8px}
+  .stat b{display:block;font-size:15px;font-variant-numeric:tabular-nums}
+  .stat span{color:var(--mute);font-size:11px}
+  #timebar{grid-column:1/3}
+  #tbTop{display:flex;align-items:center;gap:12px;margin-bottom:6px}
+  #runLabel{font-weight:700;font-size:15px;min-width:220px;font-variant-numeric:tabular-nums}
+  #slider{flex:1}
+  #tip{position:absolute;pointer-events:none;background:rgba(20,24,33,.92);color:#fff;padding:6px 8px;border-radius:5px;font-size:12px;display:none;white-space:nowrap;font-variant-numeric:tabular-nums}
+  .legend{display:flex;gap:14px;color:var(--mute);font-size:11px;margin-top:4px;flex-wrap:wrap}
+  .sw{display:inline-block;width:14px;height:3px;vertical-align:middle;margin-right:4px}
+  .toolbar{display:flex;gap:6px;align-items:center;margin-bottom:8px;flex-wrap:wrap}
+  .toolbar .sep{width:1px;height:22px;background:var(--line);margin:0 4px}
+  .toolbar .hint{color:var(--mute);font-size:11px;margin-left:8px}
+  button.on{background:#1d2330;color:#fff;border-color:#1d2330}
+  button:disabled{opacity:.45;cursor:default}
+  #map.grab{cursor:grab} #map.grabbing{cursor:grabbing}
+  #trend{display:flex;gap:14px;flex-wrap:wrap;align-items:flex-end;margin-top:10px;padding-top:10px;border-top:1px solid var(--line)}
+  #trend .f{display:flex;flex-direction:column;gap:3px}
+  #trend .f label{font-weight:600;font-size:12px}
+  #trend .f select,#trend .f input{width:auto}
+  #trend input[type=number]{width:90px}
+  #trendOut{display:flex;gap:10px;flex-wrap:wrap;margin-top:8px}
+  #trendOut .stat{min-width:150px}
+  .st-rise{color:#c0392b}.st-fall{color:#2f6fed}.st-flat{color:#19a979}
+  #tabs{display:flex;gap:4px;padding:8px 18px 0;background:var(--panel);border-bottom:1px solid var(--line);align-items:flex-end}
+  #tabs button.tab{border:1px solid var(--line);border-bottom:none;border-radius:6px 6px 0 0;background:var(--bg);padding:7px 16px;margin-bottom:-1px;font-weight:600;color:var(--mute)}
+  #tabs button.tab.active{background:var(--bg);color:var(--ink);border-color:var(--line);box-shadow:inset 0 3px 0 var(--acc)}
+  #tabs .sp{flex:1}
+  #mgmtCfg .opts{display:flex;flex-wrap:wrap;gap:6px 18px;margin:6px 0 10px}
+  #mgmtCfg .opts label{display:flex;gap:5px;align-items:center}
+  #mgmtCfg .grid{display:grid;grid-template-columns:1fr 1fr 160px;gap:8px 14px}
+  #mgmtCfg input[type=text],#mgmtCfg textarea{width:100%;padding:5px 6px;border:1px solid var(--line);border-radius:5px;font:inherit}
+  #mgmt{padding:18px 24px;max-width:1300px;margin:0 auto}
+  #mgmt h2{font-size:24px;margin:0 0 2px}
+  #mgmt .msub{color:var(--mute);font-size:14px;margin-bottom:14px}
+  #mgmt .cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px;margin-bottom:14px}
+  #mgmt .mcard{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:14px 16px;border-top:5px solid var(--line)}
+  #mgmt .mcard b{display:block;font-size:24px;font-variant-numeric:tabular-nums;margin-bottom:2px}
+  #mgmt .mcard span{color:var(--mute);font-size:13px}
+  #mgmt .mcard.b{border-top-color:#2f6fed} #mgmt .mcard.p{border-top-color:#7b4fd6}
+  #mgmt .mcard.g{border-top-color:#19a979} #mgmt .mcard.a{border-top-color:#e8a33b} #mgmt .mcard.r{border-top-color:#d0342c}
+  #mgmt .msum{background:var(--panel);border:1px solid var(--line);border-left:5px solid var(--acc);border-radius:8px;padding:12px 16px;font-size:15px;line-height:1.55;margin-bottom:14px}
+  #mgmt .mrow{display:grid;grid-template-columns:minmax(0,1.15fr) minmax(0,1fr);gap:14px}
+  #mgmt .mrow.one{grid-template-columns:1fr}
+  #mgmt .mbox{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:12px}
+  #mgmt .mbox h3{margin:0 0 6px;font-size:15px}
+  #mgmt .mleg{color:var(--mute);font-size:13px;margin-top:6px;line-height:1.5}
+  #mgmt .mtime{position:sticky;top:0;z-index:5;display:flex;align-items:center;gap:10px;background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:10px 14px;margin-bottom:14px;box-shadow:0 2px 6px rgba(0,0,0,.05)}
+  #mgmt .mtime button{font-size:15px;padding:7px 14px}
+  #mgmt .mtime input[type=range]{flex:1;height:26px}
+  #mgmt .mtime .lbl{font-size:16px;font-weight:700;min-width:250px;font-variant-numeric:tabular-nums}
+  #mgmt .mtime .lbl small{display:block;font-weight:400;color:var(--mute);font-size:12px}
+  @media print{#mgmt .mtime{display:none}}
+  #mgmt .mnote{margin-top:14px;background:#fffbea;border:1px solid #f0e2a8;border-radius:8px;padding:10px 14px;font-size:14px;white-space:pre-wrap}
+  @media print{#tabs,header{display:none}#mgmt{padding:0}body{background:#fff}}
+  @media (max-width:900px){#mgmt .mrow{grid-template-columns:1fr}#mgmtCfg .grid{grid-template-columns:1fr}}
+  body.big .wrap{grid-template-columns:1fr}
+  body.big #panelCard{order:3} body.big #timebar{order:2;grid-column:1}
+  body.big #mgmtCfg{order:4}
+  @media (max-width:900px){.wrap{grid-template-columns:1fr}#timebar{grid-column:1}}
+</style>
+</head>
+<body>
+<header>
+  <h1>2D Shift Quiver Map</h1>
+  <span class="sub" id="hdrInfo"></span>
+</header>
+<div id="tabs">
+  <button class="tab active" id="tabEng">Engineering</button>
+  <button class="tab" id="tabMgmt">Management view</button>
+  <span class="sp"></span>
+  <button id="mPrint" style="display:none;margin-bottom:6px">Print / save PDF</button>
+</div>
+<div id="engView">
+<div class="wrap">
+  <div class="card" id="mapCard">
+    <div class="toolbar">
+      <button id="b3d">3D view</button>
+      <button id="bMesh" disabled>Mesh: off</button>
+      <span class="sep"></span>
+      <button id="zIn" title="Zoom in">＋</button>
+      <button id="zOut" title="Zoom out">－</button>
+      <button id="zReset" title="Reset view">Reset view</button>
+      <span class="sep"></span>
+      <button id="bBig" title="Full-width map; settings move below the chart">⤢ Large map</button>
+      <span class="hint" id="navHint"></span>
+    </div>
+    <canvas id="map"></canvas>
+    <div id="tip"></div>
+  </div>
+  <div class="card" id="panelCard">
+    <div class="ctl">
+      <label>Vector shown</label>
+      <select id="mode">
+        <option value="abs">Shift (ShiftX, ShiftY) per scan</option>
+        <option value="ref" selected>Change vs first scan</option>
+        <option value="prev">Change vs previous scan</option>
+        <option value="mean">Deviation from per-die mean</option>
+      </select>
+    </div>
+    <div class="ctl">
+      <label>Arrow colour</label>
+      <select id="cmode">
+        <option value="mag">Magnitude</option>
+        <option value="dir">Direction (angle)</option>
+        <option value="x">ShiftX (signed)</option>
+        <option value="y">ShiftY (signed)</option>
+        <option value="ud">Two colours: up / down (or right / left)</option>
+      </select>
+    </div>
+    <div class="ctl" id="udCtl" style="display:none">
+      <label>Two-colour settings</label>
+      <div class="row" style="margin-bottom:4px">
+        <select id="udAxis" style="flex:1">
+          <option value="y">Split by Y: up / down</option>
+          <option value="x">Split by X: right / left</option>
+        </select>
+      </div>
+      <div class="row" style="margin-bottom:4px">
+        <input type="color" id="udPos" value="#e0301e" style="width:34px;height:26px;padding:0;border:1px solid var(--line)"><span id="udPosL" style="flex:1">Up (+Y)</span>
+        <input type="color" id="udNeg" value="#1f5fd6" style="width:34px;height:26px;padding:0;border:1px solid var(--line)"><span id="udNegL" style="flex:1">Down (−Y)</span>
+      </div>
+      <div class="row" style="margin-bottom:4px">
+        <span style="white-space:nowrap">Neutral band ±</span><input type="number" id="udDead" value="0" min="0" step="0.005" style="width:80px">
+        <input type="color" id="udNeu" value="#9aa3b2" style="width:34px;height:26px;padding:0;border:1px solid var(--line)" title="Colour for arrows inside the neutral band">
+      </div>
+      <label class="row" style="font-weight:400"><input type="checkbox" id="udShade" checked> Shade by size (pale = small, full = large)</label>
+      <button id="udSwap" style="margin-top:4px">Swap colours</button>
+      <div class="hint">Colour follows the sign of the Y (or X) component of each arrow. Arrows with |component| inside the neutral band get the neutral colour. In 3D the height is the signed component.</div>
+    </div>
+    <div class="ctl">
+      <label>Arrow length scale <span id="scaleVal"></span></label>
+      <input type="range" id="scale" min="0.2" max="4" step="0.05" value="1.1">
+      <div class="hint">1× = 95th-percentile vector ≈ 0.9 die pitch</div>
+    </div>
+    <div class="ctl">
+      <label>Colour range max <span id="cmaxVal"></span></label>
+      <input type="range" id="cmax" min="0.2" max="2" step="0.05" value="0.7">
+      <div class="hint">1× = 99th percentile over all scans (fixed across time)</div>
+    </div>
+    <div class="ctl" id="thrCtl">
+      <label>Focus: show only <span id="thrBasis">|v|</span> &ge;</label>
+      <div class="row">
+        <input type="number" id="thrNum" value="0" min="0" step="0.001" style="width:96px">
+        <button id="thrOff" title="Clear threshold">Off</button>
+      </div>
+      <input type="range" id="thr" min="0" max="1" step="0.0001" value="0">
+      <div class="row" style="margin-top:4px">
+        <select id="thrBelow" style="width:auto;flex:1">
+          <option value="dim">Below threshold: dim</option>
+          <option value="hide">Below threshold: hide</option>
+        </select>
+      </div>
+      <label class="row" style="font-weight:400;margin-top:4px"><input type="checkbox" id="thrStretch" checked> Stretch colour scale from threshold</label>
+      <div class="hint">Absolute value in data units. Basis follows the colour choice: |v| (magnitude/direction), |dx| (ShiftX), |dy| (ShiftY). 0 = off.</div>
+    </div>
+    <div class="ctl" id="h3Ctl" style="display:none">
+      <label>3D height scale <span id="h3Val"></span></label>
+      <input type="range" id="h3" min="0.1" max="3" step="0.05" value="1">
+      <div class="hint">Height = |v| (or signed X / Y, following the colour choice)</div>
+    </div>
+    <div class="ctl">
+      <label class="row" style="font-weight:600;margin-bottom:6px"><input type="checkbox" id="znOn"> Mark zones arrows point into (circles)</label>
+      <div id="znCtl" style="display:none;padding-left:4px">
+        <label class="row" style="font-weight:400"><input type="checkbox" id="znSrc"> Also mark zones arrows point out of</label>
+        <label style="font-weight:400;margin-top:4px">Search radius <span id="znRv"></span></label>
+        <input type="range" id="znR" min="1.5" max="8" step="0.5" value="2.5">
+        <label style="font-weight:400">Min share pointing in <span id="znFv"></span></label>
+        <input type="range" id="znF" min="0.5" max="1" step="0.05" value="0.75">
+        <label style="font-weight:400">Angle tolerance ± <span id="znAv"></span></label>
+        <input type="range" id="znA" min="20" max="80" step="5" value="45">
+        <label style="font-weight:400">Ignore arrows shorter than <span id="znLv"></span></label>
+        <input type="range" id="znL" min="0" max="0.6" step="0.05" value="0.2">
+        <label style="font-weight:400">Surround: inward arrows from ≥ <span id="znOv"></span> of 8 directions</label>
+        <input type="range" id="znO" min="3" max="8" step="1" value="6">
+        <label style="font-weight:400">Min arrows counted <span id="znNv"></span></label>
+        <input type="range" id="znN" min="6" max="40" step="1" value="12">
+        <label style="font-weight:400">Persistence: seen in ≥ <input type="number" id="znK" value="3" min="1" max="20" style="width:46px;display:inline-block"> of last <input type="number" id="znW" value="5" min="1" max="30" style="width:46px;display:inline-block"> scans</label>
+        <div class="hint">For each candidate point (every ½ die pitch), all arrows within the radius are tested. An arrow "points in" if its direction is within ± the angle tolerance of the direction to the point. A zone is marked when at least the chosen share of the counted arrows point in (default ¾; if more than ¼ point elsewhere it is rejected) and the inward arrows come from enough of the 8 directions around it (default 6; lower it to also catch convergence onto a line), so a one-sided flow is not counted. Short arrows (fraction of the 95th-percentile length) are noise and are not counted. Overlapping hits keep only the strongest. Persistence keeps only zones that recur at about the same place in recent scans (noise zones flicker). Label = share pointing in. Set persistence to 1 of 1 to see single-scan hits.</div>
+      </div>
+    </div>
+    <div class="ctl">
+      <label class="row" style="font-weight:600"><input type="checkbox" id="trail"> Show tip trail (last <input type="number" id="trailN" value="10" min="2" max="60" style="width:52px;display:inline-block"> scans)</label>
+    </div>
+    <div class="ctl">
+      <label>Playback speed (scans/s) <span id="spdVal"></span></label>
+      <input type="range" id="speed" min="1" max="30" step="1" value="6">
+    </div>
+    <div class="stats" id="stats"></div>
+  </div>
+  <div class="card" id="timebar">
+    <div id="tbTop">
+      <button id="play" class="primary">▶ Play</button>
+      <button id="prevB">◀</button><button id="nextB">▶</button>
+      <span id="runLabel"></span>
+      <input type="range" id="slider" min="0" value="0" step="1">
+    </div>
+    <canvas id="ts" height="170"></canvas>
+    <div class="legend">
+      <label class="row" style="gap:4px"><input type="checkbox" class="tsSer" data-k="mean" checked><i class="sw" style="background:#2f6fed"></i>Mean |v|</label>
+      <label class="row" style="gap:4px"><input type="checkbox" class="tsSer" data-k="max" checked><i class="sw" style="background:#7b4fd6"></i>Max |v|</label>
+      <label class="row" style="gap:4px"><input type="checkbox" class="tsSer" data-k="sx" checked><i class="sw" style="background:#e8743b"></i>Std X</label>
+      <label class="row" style="gap:4px"><input type="checkbox" class="tsSer" data-k="sy" checked><i class="sw" style="background:#19a979"></i>Std Y</label>
+      <label class="row" style="gap:4px" title="Max is usually several times larger than the others; a separate right-hand axis keeps the other lines readable"><input type="checkbox" id="tsMaxAx" checked>Max on right axis</label>
+      <span>Click the chart to jump to a scan · ←/→ step · Space play/pause</span>
+    </div>
+    <div id="trend">
+      <div class="f"><label>Trend series</label>
+        <select id="trSer">
+          <option value="mean">Mean |v|</option>
+          <option value="sx">Std X</option>
+          <option value="sy">Std Y</option>
+          <option value="max">Max |v|</option>
+        </select></div>
+      <div class="f"><label>Slope window (scans, trailing)</label><input type="number" id="trW" value="10" min="3" max="60"></div>
+      <div class="f"><label>Stability: next N scans</label><input type="number" id="trN" value="10" min="2" max="100"></div>
+      <div class="f"><label>Tolerance ± (units)</label>
+        <div class="row"><input type="number" id="trTol" step="0.001" min="0"><button id="trAuto" title="Set tolerance to 3σ of the scan-to-scan noise of this series">Auto 3σ</button></div></div>
+      <div class="f"><label>Criterion</label>
+        <select id="trCrit">
+          <option value="band">Next N within ± tol of their mean</option>
+          <option value="drift">… and |slope over N| ≤ drift limit</option>
+          <option value="hold">Hold to end: all later values within ± tol</option>
+        </select></div>
+      <div class="f" id="trDriftF" style="display:none"><label>Drift limit (/h)</label><input type="number" id="trDrift" step="0.001" min="0" value="0.01"></div>
+      <div class="f"><label class="row" style="font-weight:400"><input type="checkbox" id="trShow" checked> Show on chart</label></div>
+    </div>
+    <div id="trendOut"></div>
+    <div class="legend" style="margin-top:6px"><span>Slope = least-squares fit over the trailing window, per hour (from timestamps). Angle = slope as drawn on this chart, so it depends on the axis scaling. State: flat if the fitted change across the window is ≤ tolerance. A scan is stable if all of the next N values stay within ± tolerance of their mean. "Settled from" = the first scan after which every N-scan window is stable. Note: the N-window test cannot see drift slower than tol / (N·Δt); use the drift limit or "hold to end", and check the net-drift card.</span></div>
+  </div>
+  <div class="card" id="mgmtCfg" style="grid-column:1/-1">
+    <label style="font-weight:700;font-size:14px">Management view - what to show</label>
+    <div class="hint" style="color:var(--mute);font-size:11px">The Management tab mirrors the settings above (vector, colours, threshold, trend series, tolerance, criterion, current scan) and shows only what is ticked here, with no controls.</div>
+    <div class="opts">
+      <label><input type="checkbox" data-m="cards" checked> Status cards</label>
+      <label><input type="checkbox" data-m="summary" checked> Plain-language summary</label>
+      <label><input type="checkbox" data-m="map" checked> Wafer map</label>
+      <label><input type="checkbox" data-m="bigmap" checked> Large map (full width, chart below)</label>
+      <label><input type="checkbox" data-m="trend" checked> Trend chart</label>
+      <label><input type="checkbox" data-m="band"> Tolerance band on chart</label>
+      <label><input type="checkbox" data-m="mmcards" checked> Average &amp; largest value cards</label>
+      <label><input type="checkbox" data-m="mmchart" checked> Average &amp; largest lines in chart</label>
+      <label><input type="checkbox" data-m="slider" checked> Time slider + Play</label>
+      <label><input type="checkbox" data-m="scaninfo" checked> Scan / date line</label>
+      <label><input type="checkbox" data-m="note"> Presenter note</label>
+    </div>
+    <div class="grid">
+      <div><label>Title</label><input type="text" id="mTitle" value="Wafer shift stability"></div>
+      <div><label>Subtitle</label><input type="text" id="mSub" placeholder="e.g. Tool X, chuck #2, after warm-up"></div>
+      <div><label>Unit label</label><input type="text" id="mUnit" placeholder="e.g. µm"></div>
+    </div>
+    <div style="margin-top:8px"><label>Presenter note (shown only if "Presenter note" is ticked)</label><textarea id="mNote" rows="2" placeholder="Free text shown at the bottom of the management view"></textarea></div>
+    <div style="margin-top:8px"><button class="primary" id="mGo">Open Management view</button></div>
+  </div>
+</div>
+</div>
+<div id="mgmtView" style="display:none">
+  <div id="mgmt">
+    <h2 id="mgTitle"></h2>
+    <div class="msub" id="mgSub"></div>
+    <div class="mtime" id="mgTime">
+      <button id="mgPlay" class="primary">▶ Play</button>
+      <button id="mgPrev" title="Previous scan">◀</button><button id="mgNext" title="Next scan">▶</button>
+      <div class="lbl" id="mgLbl"></div>
+      <input type="range" id="mgSlider" min="0" step="1" value="0">
+      <button id="mgFirst" title="Go to first scan">Start</button><button id="mgLast" title="Go to last scan">End</button>
+    </div>
+    <div class="cards" id="mgCards"></div>
+    <div class="msum" id="mgSum"></div>
+    <div class="mrow" id="mgRow">
+      <div class="mbox" id="mgMapBox"><h3 id="mgMapH"></h3><canvas id="mgMap"></canvas><div class="mleg" id="mgMapLeg"></div></div>
+      <div class="mbox" id="mgTrBox"><h3 id="mgTrH"></h3><canvas id="mgTr"></canvas><div class="mleg" id="mgTrLeg"></div></div>
+    </div>
+    <div class="mnote" id="mgNote"></div>
+  </div>
+</div>
+<script id="data" type="application/json">{"runs":["0.2D.0","0.2D.0_2"],"times":["03-11 14:32:51","03-11 15:53:54"],"pts":[[122830.8,299224.7],[129130.8,299224.7],[135430.8,299224.7],[141730.8,299224.7],[148030.8,299224.7],[154330.8,299224.7],[160630.8,299224.7],[166930.8,299224.7],[173230.8,299224.7],[179530.8,299224.7],[185830.8,299224.7],[192130.8,299224.7],[198430.8,299224.7],[110230.8,292924.7],[116530.8,292924.7],[122830.8,292924.7],[129130.8,292924.7],[135430.8,292924.7],[141730.8,292924.7],[148030.8,292924.7],[154330.8,292924.7],[160630.8,292924.7],[166930.8,292924.7],[173230.8,292924.7],[179530.8,292924.7],[185830.8,292924.7],[192130.8,292924.7],[198430.8,292924.7],[204730.8,292924.7],[211030.8,292924.7],[97630.8,286624.7],[103930.8,286624.7],[110230.8,286624.7],[116530.8,286624.7],[122830.8,286624.7],[129130.8,286624.7],[135430.8,286624.7],[141730.8,286624.7],[148030.8,286624.7],[154330.8,286624.7],[160630.8,286624.7],[166930.8,286624.7],[173230.8,286624.7],[179530.8,286624.7],[185830.8,286624.7],[192130.8,286624.7],[198430.8,286624.7],[204730.8,286624.7],[211030.8,286624.7],[217330.8,286624.7],[223630.8,286624.7],[91330.8,280324.7],[97630.8,280324.7],[103930.8,280324.7],[110230.8,280324.7],[116530.8,280324.7],[122830.8,280324.7],[129130.8,280324.7],[135430.8,280324.7],[141730.8,280324.7],[148030.8,280324.7],[154330.8,280324.7],[160630.8,280324.7],[166930.8,280324.7],[173230.8,280324.7],[179530.8,280324.7],[185830.8,280324.7],[192130.8,280324.7],[198430.8,280324.7],[204730.8,280324.7],[211030.8,280324.7],[217330.8,280324.7],[223630.8,280324.7],[229930.8,280324.7],[236230.8,280324.7],[85030.8,274024.7],[91330.8,274024.7],[97630.8,274024.7],[103930.8,274024.7],[110230.8,274024.7],[116530.8,274024.7],[122830.8,274024.7],[129130.8,274024.7],[135430.8,274024.7],[141730.8,274024.7],[148030.8,274024.7],[154330.8,274024.7],[160630.8,274024.7],[166930.8,274024.7],[173230.8,274024.7],[179530.8,274024.7],[185830.8,274024.7],[192130.8,274024.7],[198430.8,274024.7],[204730.8,274024.7],[211030.8,274024.7],[217330.8,274024.7],[223630.8,274024.7],[229930.8,274024.7],[236230.8,274024.7],[242530.8,274024.7],[72430.8,267724.7],[78730.8,267724.7],[85030.8,267724.7],[91330.8,267724.7],[97630.8,267724.7],[103930.8,267724.7],[110230.8,267724.7],[116530.8,267724.7],[122830.8,267724.7],[129130.8,267724.7],[135430.8,267724.7],[141730.8,267724.7],[148030.8,267724.7],[154330.8,267724.7],[160630.8,267724.7],[166930.8,267724.7],[173230.8,267724.7],[179530.8,267724.7],[185830.8,267724.7],[192130.8,267724.7],[198430.8,267724.7],[204730.8,267724.7],[211030.8,267724.7],[217330.8,267724.7],[223630.8,267724.7],[229930.8,267724.7],[236230.8,267724.7],[242530.8,267724.7],[248830.8,267724.7],[255130.8,267724.7],[66130.8,261424.7],[72430.8,261424.7],[78730.8,261424.7],[85030.8,261424.7],[91330.8,261424.7],[97630.8,261424.7],[103930.8,261424.7],[110230.8,261424.7],[116530.8,261424.7],[122830.8,261424.7],[129130.8,261424.7],[135430.8,261424.7],[141730.8,261424.7],[148030.8,261424.7],[154330.8,261424.7],[160630.8,261424.7],[166930.8,261424.7],[173230.8,261424.7],[179530.8,261424.7],[185830.8,261424.7],[192130.8,261424.7],[198430.8,261424.7],[204730.8,261424.7],[211030.8,261424.7],[217330.8,261424.7],[223630.8,261424.7],[229930.8,261424.7],[236230.8,261424.7],[242530.8,261424.7],[248830.8,261424.7],[255130.8,261424.7],[261430.8,261424.7],[59830.8,255124.7],[66130.8,255124.7],[72430.8,255124.7],[78730.8,255124.7],[85030.8,255124.7],[91330.8,255124.7],[97630.8,255124.7],[103930.8,255124.7],[110230.8,255124.7],[116530.8,255124.7],[122830.8,255124.7],[129130.8,255124.7],[135430.8,255124.7],[141730.8,255124.7],[148030.8,255124.7],[154330.8,255124.7],[160630.8,255124.7],[166930.8,255124.7],[173230.8,255124.7],[179530.8,255124.7],[185830.8,255124.7],[192130.8,255124.7],[198430.8,255124.7],[204730.8,255124.7],[211030.8,255124.7],[217330.8,255124.7],[223630.8,255124.7],[229930.8,255124.7],[236230.8,255124.7],[242530.8,255124.7],[248830.8,255124.7],[255130.8,255124.7],[261430.8,255124.7],[267730.8,255124.7],[53530.8,248824.7],[59830.8,248824.7],[66130.8,248824.7],[72430.8,248824.7],[78730.8,248824.7],[85030.8,248824.7],[91330.8,248824.7],[97630.8,248824.7],[103930.8,248824.7],[110230.8,248824.7],[116530.8,248824.7],[122830.8,248824.7],[129130.8,248824.7],[135430.8,248824.7],[141730.8,248824.7],[148030.8,248824.7],[154330.8,248824.7],[160630.8,248824.7],[166930.8,248824.7],[173230.8,248824.7],[179530.8,248824.7],[185830.8,248824.7],[192130.8,248824.7],[198430.8,248824.7],[204730.8,248824.7],[211030.8,248824.7],[217330.8,248824.7],[223630.8,248824.7],[229930.8,248824.7],[236230.8,248824.7],[242530.8,248824.7],[248830.8,248824.7],[255130.8,248824.7],[261430.8,248824.7],[267730.8,248824.7],[274030.8,248824.7],[53530.8,242524.7],[59830.8,242524.7],[66130.8,242524.7],[72430.8,242524.7],[78730.8,242524.7],[85030.8,242524.7],[91330.8,242524.7],[97630.8,242524.7],[103930.8,242524.7],[110230.8,242524.7],[116530.8,242524.7],[122830.8,242524.7],[129130.8,242524.7],[135430.8,242524.7],[141730.8,242524.7],[148030.8,242524.7],[154330.8,242524.7],[160630.8,242524.7],[166930.8,242524.7],[173230.8,242524.7],[179530.8,242524.7],[185830.8,242524.7],[192130.8,242524.7],[198430.8,242524.7],[204730.8,242524.7],[211030.8,242524.7],[217330.8,242524.7],[223630.8,242524.7],[229930.8,242524.7],[236230.8,242524.7],[242530.8,242524.7],[248830.8,242524.7],[255130.8,242524.7],[261430.8,242524.7],[267730.8,242524.7],[274030.8,242524.7],[47230.8,236224.7],[53530.8,236224.7],[59830.8,236224.7],[66130.8,236224.7],[72430.8,236224.7],[78730.8,236224.7],[85030.8,236224.7],[91330.8,236224.7],[97630.8,236224.7],[103930.8,236224.7],[110230.8,236224.7],[116530.8,236224.7],[122830.8,236224.7],[129130.8,236224.7],[135430.8,236224.7],[141730.8,236224.7],[148030.8,236224.7],[154330.8,236224.7],[160630.8,236224.7],[166930.8,236224.7],[173230.8,236224.7],[179530.8,236224.7],[185830.8,236224.7],[192130.8,236224.7],[198430.8,236224.7],[204730.8,236224.7],[211030.8,236224.7],[217330.8,236224.7],[223630.8,236224.7],[229930.8,236224.7],[236230.8,236224.7],[242530.8,236224.7],[248830.8,236224.7],[255130.8,236224.7],[261430.8,236224.7],[267730.8,236224.7],[274030.8,236224.7],[280330.8,236224.7],[40930.8,229924.7],[47230.8,229924.7],[53530.8,229924.7],[59830.8,229924.7],[66130.8,229924.7],[72430.8,229924.7],[78730.8,229924.7],[85030.8,229924.7],[91330.8,229924.7],[97630.8,229924.7],[103930.8,229924.7],[110230.8,229924.7],[116530.8,229924.7],[122830.8,229924.7],[129130.8,229924.7],[135430.8,229924.7],[141730.8,229924.7],[148030.8,229924.7],[154330.8,229924.7],[160630.8,229924.7],[166930.8,229924.7],[173230.8,229924.7],[179530.8,229924.7],[185830.8,229924.7],[192130.8,229924.7],[198430.8,229924.7],[204730.8,229924.7],[211030.8,229924.7],[217330.8,229924.7],[223630.8,229924.7],[229930.8,229924.7],[236230.8,229924.7],[242530.8,229924.7],[248830.8,229924.7],[255130.8,229924.7],[261430.8,229924.7],[267730.8,229924.7],[274030.8,229924.7],[280330.8,229924.7],[286630.8,229924.7],[40930.8,223624.7],[47230.8,223624.7],[53530.8,223624.7],[59830.8,223624.7],[66130.8,223624.7],[72430.8,223624.7],[78730.8,223624.7],[85030.8,223624.7],[91330.8,223624.7],[97630.8,223624.7],[103930.8,223624.7],[110230.8,223624.7],[116530.8,223624.7],[122830.8,223624.7],[129130.8,223624.7],[135430.8,223624.7],[141730.8,223624.7],[148030.8,223624.7],[154330.8,223624.7],[160630.8,223624.7],[166930.8,223624.7],[173230.8,223624.7],[179530.8,223624.7],[185830.8,223624.7],[192130.8,223624.7],[198430.8,223624.7],[204730.8,223624.7],[211030.8,223624.7],[217330.8,223624.7],[223630.8,223624.7],[229930.8,223624.7],[236230.8,223624.7],[242530.8,223624.7],[248830.8,223624.7],[255130.8,223624.7],[261430.8,223624.7],[267730.8,223624.7],[274030.8,223624.7],[280330.8,223624.7],[286630.8,223624.7],[34630.8,217324.7],[40930.8,217324.7],[47230.8,217324.7],[53530.8,217324.7],[59830.8,217324.7],[66130.8,217324.7],[72430.8,217324.7],[78730.8,217324.7],[85030.8,217324.7],[91330.8,217324.7],[97630.8,217324.7],[103930.8,217324.7],[110230.8,217324.7],[116530.8,217324.7],[122830.8,217324.7],[129130.8,217324.7],[135430.8,217324.7],[141730.8,217324.7],[148030.8,217324.7],[154330.8,217324.7],[160630.8,217324.7],[166930.8,217324.7],[173230.8,217324.7],[179530.8,217324.7],[185830.8,217324.7],[192130.8,217324.7],[198430.8,217324.7],[204730.8,217324.7],[211030.8,217324.7],[217330.8,217324.7],[223630.8,217324.7],[229930.8,217324.7],[236230.8,217324.7],[242530.8,217324.7],[248830.8,217324.7],[255130.8,217324.7],[261430.8,217324.7],[267730.8,217324.7],[274030.8,217324.7],[280330.8,217324.7],[286630.8,217324.7],[292930.8,217324.7],[34630.8,211024.7],[40930.8,211024.7],[47230.8,211024.7],[53530.8,211024.7],[59830.8,211024.7],[66130.8,211024.7],[72430.8,211024.7],[78730.8,211024.7],[85030.8,211024.7],[91330.8,211024.7],[97630.8,211024.7],[103930.8,211024.7],[110230.8,211024.7],[116530.8,211024.7],[122830.8,211024.7],[129130.8,211024.7],[135430.8,211024.7],[141730.8,211024.7],[148030.8,211024.7],[154330.8,211024.7],[160630.8,211024.7],[166930.8,211024.7],[173230.8,211024.7],[179530.8,211024.7],[185830.8,211024.7],[192130.8,211024.7],[198430.8,211024.7],[204730.8,211024.7],[211030.8,211024.7],[217330.8,211024.7],[223630.8,211024.7],[229930.8,211024.7],[236230.8,211024.7],[242530.8,211024.7],[248830.8,211024.7],[255130.8,211024.7],[261430.8,211024.7],[267730.8,211024.7],[274030.8,211024.7],[280330.8,211024.7],[286630.8,211024.7],[292930.8,211024.7],[28330.8,204724.7],[34630.8,204724.7],[40930.8,204724.7],[47230.8,204724.7],[53530.8,204724.7],[59830.8,204724.7],[66130.8,204724.7],[72430.8,204724.7],[78730.8,204724.7],[85030.8,204724.7],[91330.8,204724.7],[97630.8,204724.7],[103930.8,204724.7],[110230.8,204724.7],[116530.8,204724.7],[122830.8,204724.7],[129130.8,204724.7],[135430.8,204724.7],[141730.8,204724.7],[148030.8,204724.7],[154330.8,204724.7],[160630.8,204724.7],[166930.8,204724.7],[173230.8,204724.7],[179530.8,204724.7],[185830.8,204724.7],[192130.8,204724.7],[198430.8,204724.7],[204730.8,204724.7],[211030.8,204724.7],[217330.8,204724.7],[223630.8,204724.7],[229930.8,204724.7],[236230.8,204724.7],[242530.8,204724.7],[248830.8,204724.7],[255130.8,204724.7],[261430.8,204724.7],[267730.8,204724.7],[274030.8,204724.7],[280330.8,204724.7],[286630.8,204724.7],[292930.8,204724.7],[299230.8,204724.7],[28330.8,198424.7],[34630.8,198424.7],[40930.8,198424.7],[47230.8,198424.7],[53530.8,198424.7],[59830.8,198424.7],[66130.8,198424.7],[72430.8,198424.7],[78730.8,198424.7],[85030.8,198424.7],[91330.8,198424.7],[97630.8,198424.7],[103930.8,198424.7],[110230.8,198424.7],[116530.8,198424.7],[122830.8,198424.7],[129130.8,198424.7],[135430.8,198424.7],[141730.8,198424.7],[148030.8,198424.7],[154330.8,198424.7],[160630.8,198424.7],[166930.8,198424.7],[173230.8,198424.7],[179530.8,198424.7],[185830.8,198424.7],[192130.8,198424.7],[198430.8,198424.7],[204730.8,198424.7],[211030.8,198424.7],[217330.8,198424.7],[223630.8,198424.7],[229930.8,198424.7],[236230.8,198424.7],[242530.8,198424.7],[248830.8,198424.7],[255130.8,198424.7],[261430.8,198424.7],[267730.8,198424.7],[274030.8,198424.7],[280330.8,198424.7],[286630.8,198424.7],[292930.8,198424.7],[299230.8,198424.7],[28330.8,192124.7],[34630.8,192124.7],[40930.8,192124.7],[47230.8,192124.7],[53530.8,192124.7],[59830.8,192124.7],[66130.8,192124.7],[72430.8,192124.7],[78730.8,192124.7],[85030.8,192124.7],[91330.8,192124.7],[97630.8,192124.7],[103930.8,192124.7],[110230.8,192124.7],[116530.8,192124.7],[122830.8,192124.7],[129130.8,192124.7],[135430.8,192124.7],[141730.8,192124.7],[148030.8,192124.7],[154330.8,192124.7],[160630.8,192124.7],[166930.8,192124.7],[173230.8,192124.7],[179530.8,192124.7],[185830.8,192124.7],[192130.8,192124.7],[198430.8,192124.7],[204730.8,192124.7],[211030.8,192124.7],[217330.8,192124.7],[223630.8,192124.7],[229930.8,192124.7],[236230.8,192124.7],[242530.8,192124.7],[248830.8,192124.7],[255130.8,192124.7],[261430.8,192124.7],[267730.8,192124.7],[274030.8,192124.7],[280330.8,192124.7],[286630.8,192124.7],[292930.8,192124.7],[299230.8,192124.7],[28330.8,185824.7],[34630.8,185824.7],[40930.8,185824.7],[47230.8,185824.7],[53530.8,185824.7],[59830.8,185824.7],[66130.8,185824.7],[72430.8,185824.7],[78730.8,185824.7],[85030.8,185824.7],[91330.8,185824.7],[97630.8,185824.7],[103930.8,185824.7],[110230.8,185824.7],[116530.8,185824.7],[122830.8,185824.7],[129130.8,185824.7],[135430.8,185824.7],[141730.8,185824.7],[148030.8,185824.7],[154330.8,185824.7],[160630.8,185824.7],[166930.8,185824.7],[173230.8,185824.7],[179530.8,185824.7],[185830.8,185824.7],[192130.8,185824.7],[198430.8,185824.7],[204730.8,185824.7],[211030.8,185824.7],[217330.8,185824.7],[223630.8,185824.7],[229930.8,185824.7],[236230.8,185824.7],[242530.8,185824.7],[248830.8,185824.7],[255130.8,185824.7],[261430.8,185824.7],[267730.8,185824.7],[274030.8,185824.7],[280330.8,185824.7],[286630.8,185824.7],[292930.8,185824.7],[299230.8,185824.7],[22030.8,179524.7],[28330.8,179524.7],[34630.8,179524.7],[40930.8,179524.7],[47230.8,179524.7],[53530.8,179524.7],[59830.8,179524.7],[66130.8,179524.7],[72430.8,179524.7],[78730.8,179524.7],[85030.8,179524.7],[91330.8,179524.7],[97630.8,179524.7],[103930.8,179524.7],[110230.8,179524.7],[116530.8,179524.7],[122830.8,179524.7],[129130.8,179524.7],[135430.8,179524.7],[141730.8,179524.7],[148030.8,179524.7],[154330.8,179524.7],[160630.8,179524.7],[166930.8,179524.7],[173230.8,179524.7],[179530.8,179524.7],[185830.8,179524.7],[192130.8,179524.7],[198430.8,179524.7],[204730.8,179524.7],[211030.8,179524.7],[217330.8,179524.7],[223630.8,179524.7],[229930.8,179524.7],[236230.8,179524.7],[242530.8,179524.7],[248830.8,179524.7],[255130.8,179524.7],[261430.8,179524.7],[267730.8,179524.7],[274030.8,179524.7],[280330.8,179524.7],[286630.8,179524.7],[292930.8,179524.7],[299230.8,179524.7],[305530.8,179524.7],[22030.8,173224.7],[28330.8,173224.7],[34630.8,173224.7],[40930.8,173224.7],[47230.8,173224.7],[53530.8,173224.7],[59830.8,173224.7],[66130.8,173224.7],[72430.8,173224.7],[78730.8,173224.7],[85030.8,173224.7],[91330.8,173224.7],[97630.8,173224.7],[103930.8,173224.7],[110230.8,173224.7],[116530.8,173224.7],[122830.8,173224.7],[129130.8,173224.7],[135430.8,173224.7],[141730.8,173224.7],[148030.8,173224.7],[154330.8,173224.7],[160630.8,173224.7],[166930.8,173224.7],[173230.8,173224.7],[179530.8,173224.7],[185830.8,173224.7],[192130.8,173224.7],[198430.8,173224.7],[204730.8,173224.7],[211030.8,173224.7],[217330.8,173224.7],[223630.8,173224.7],[229930.8,173224.7],[236230.8,173224.7],[242530.8,173224.7],[248830.8,173224.7],[255130.8,173224.7],[261430.8,173224.7],[267730.8,173224.7],[274030.8,173224.7],[280330.8,173224.7],[286630.8,173224.7],[292930.8,173224.7],[299230.8,173224.7],[305530.8,173224.7],[22030.8,166924.7],[28330.8,166924.7],[34630.8,166924.7],[40930.8,166924.7],[47230.8,166924.7],[53530.8,166924.7],[59830.8,166924.7],[66130.8,166924.7],[72430.8,166924.7],[78730.8,166924.7],[85030.8,166924.7],[91330.8,166924.7],[97630.8,166924.7],[103930.8,166924.7],[110230.8,166924.7],[116530.8,166924.7],[122830.8,166924.7],[129130.8,166924.7],[135430.8,166924.7],[141730.8,166924.7],[148030.8,166924.7],[154330.8,166924.7],[160630.8,166924.7],[166930.8,166924.7],[173230.8,166924.7],[179530.8,166924.7],[185830.8,166924.7],[192130.8,166924.7],[198430.8,166924.7],[204730.8,166924.7],[211030.8,166924.7],[217330.8,166924.7],[223630.8,166924.7],[229930.8,166924.7],[236230.8,166924.7],[242530.8,166924.7],[248830.8,166924.7],[255130.8,166924.7],[261430.8,166924.7],[267730.8,166924.7],[274030.8,166924.7],[280330.8,166924.7],[286630.8,166924.7],[292930.8,166924.7],[299230.8,166924.7],[305530.8,166924.7],[22030.8,160624.7],[28330.8,160624.7],[34630.8,160624.7],[40930.8,160624.7],[47230.8,160624.7],[53530.8,160624.7],[59830.8,160624.7],[66130.8,160624.7],[72430.8,160624.7],[78730.8,160624.7],[85030.8,160624.7],[91330.8,160624.7],[97630.8,160624.7],[103930.8,160624.7],[110230.8,160624.7],[116530.8,160624.7],[122830.8,160624.7],[129130.8,160624.7],[135430.8,160624.7],[141730.8,160624.7],[148030.8,160624.7],[154330.8,160624.7],[160630.8,160624.7],[166930.8,160624.7],[173230.8,160624.7],[179530.8,160624.7],[185830.8,160624.7],[192130.8,160624.7],[198430.8,160624.7],[204730.8,160624.7],[211030.8,160624.7],[217330.8,160624.7],[223630.8,160624.7],[229930.8,160624.7],[236230.8,160624.7],[242530.8,160624.7],[248830.8,160624.7],[255130.8,160624.7],[261430.8,160624.7],[267730.8,160624.7],[274030.8,160624.7],[280330.8,160624.7],[286630.8,160624.7],[292930.8,160624.7],[299230.8,160624.7],[305530.8,160624.7],[22030.8,154324.7],[28330.8,154324.7],[34630.8,154324.7],[40930.8,154324.7],[47230.8,154324.7],[53530.8,154324.7],[59830.8,154324.7],[66130.8,154324.7],[72430.8,154324.7],[78730.8,154324.7],[85030.8,154324.7],[91330.8,154324.7],[97630.8,154324.7],[103930.8,154324.7],[110230.8,154324.7],[116530.8,154324.7],[122830.8,154324.7],[129130.8,154324.7],[135430.8,154324.7],[141730.8,154324.7],[148030.8,154324.7],[154330.8,154324.7],[160630.8,154324.7],[166930.8,154324.7],[173230.8,154324.7],[179530.8,154324.7],[185830.8,154324.7],[192130.8,154324.7],[198430.8,154324.7],[204730.8,154324.7],[211030.8,154324.7],[217330.8,154324.7],[223630.8,154324.7],[229930.8,154324.7],[236230.8,154324.7],[242530.8,154324.7],[248830.8,154324.7],[255130.8,154324.7],[261430.8,154324.7],[267730.8,154324.7],[274030.8,154324.7],[280330.8,154324.7],[286630.8,154324.7],[292930.8,154324.7],[299230.8,154324.7],[305530.8,154324.7],[22030.8,148024.7],[28330.8,148024.7],[34630.8,148024.7],[40930.8,148024.7],[47230.8,148024.7],[53530.8,148024.7],[59830.8,148024.7],[66130.8,148024.7],[72430.8,148024.7],[78730.8,148024.7],[85030.8,148024.7],[91330.8,148024.7],[97630.8,148024.7],[103930.8,148024.7],[110230.8,148024.7],[116530.8,148024.7],[122830.8,148024.7],[129130.8,148024.7],[135430.8,148024.7],[141730.8,148024.7],[148030.8,148024.7],[154330.8,148024.7],[160630.8,148024.7],[166930.8,148024.7],[173230.8,148024.7],[179530.8,148024.7],[185830.8,148024.7],[192130.8,148024.7],[198430.8,148024.7],[204730.8,148024.7],[211030.8,148024.7],[217330.8,148024.7],[223630.8,148024.7],[229930.8,148024.7],[236230.8,148024.7],[242530.8,148024.7],[248830.8,148024.7],[255130.8,148024.7],[261430.8,148024.7],[267730.8,148024.7],[274030.8,148024.7],[280330.8,148024.7],[286630.8,148024.7],[292930.8,148024.7],[299230.8,148024.7],[305530.8,148024.7],[22030.8,141724.7],[28330.8,141724.7],[34630.8,141724.7],[40930.8,141724.7],[47230.8,141724.7],[53530.8,141724.7],[59830.8,141724.7],[66130.8,141724.7],[72430.8,141724.7],[78730.8,141724.7],[85030.8,141724.7],[91330.8,141724.7],[97630.8,141724.7],[103930.8,141724.7],[110230.8,141724.7],[116530.8,141724.7],[122830.8,141724.7],[129130.8,141724.7],[135430.8,141724.7],[141730.8,141724.7],[148030.8,141724.7],[154330.8,141724.7],[160630.8,141724.7],[166930.8,141724.7],[173230.8,141724.7],[179530.8,141724.7],[185830.8,141724.7],[192130.8,141724.7],[198430.8,141724.7],[204730.8,141724.7],[211030.8,141724.7],[217330.8,141724.7],[223630.8,141724.7],[229930.8,141724.7],[236230.8,141724.7],[242530.8,141724.7],[248830.8,141724.7],[255130.8,141724.7],[261430.8,141724.7],[267730.8,141724.7],[274030.8,141724.7],[280330.8,141724.7],[286630.8,141724.7],[292930.8,141724.7],[299230.8,141724.7],[305530.8,141724.7],[22030.8,135424.7],[28330.8,135424.7],[34630.8,135424.7],[40930.8,135424.7],[47230.8,135424.7],[53530.8,135424.7],[59830.8,135424.7],[66130.8,135424.7],[72430.8,135424.7],[78730.8,135424.7],[85030.8,135424.7],[91330.8,135424.7],[97630.8,135424.7],[103930.8,135424.7],[110230.8,135424.7],[116530.8,135424.7],[122830.8,135424.7],[129130.8,135424.7],[135430.8,135424.7],[141730.8,135424.7],[148030.8,135424.7],[154330.8,135424.7],[160630.8,135424.7],[166930.8,135424.7],[173230.8,135424.7],[179530.8,135424.7],[185830.8,135424.7],[192130.8,135424.7],[198430.8,135424.7],[204730.8,135424.7],[211030.8,135424.7],[217330.8,135424.7],[223630.8,135424.7],[229930.8,135424.7],[236230.8,135424.7],[242530.8,135424.7],[248830.8,135424.7],[255130.8,135424.7],[261430.8,135424.7],[267730.8,135424.7],[274030.8,135424.7],[280330.8,135424.7],[286630.8,135424.7],[292930.8,135424.7],[299230.8,135424.7],[305530.8,135424.7],[28330.8,129124.7],[34630.8,129124.7],[40930.8,129124.7],[47230.8,129124.7],[53530.8,129124.7],[59830.8,129124.7],[66130.8,129124.7],[72430.8,129124.7],[78730.8,129124.7],[85030.8,129124.7],[91330.8,129124.7],[97630.8,129124.7],[103930.8,129124.7],[110230.8,129124.7],[116530.8,129124.7],[122830.8,129124.7],[129130.8,129124.7],[135430.8,129124.7],[141730.8,129124.7],[148030.8,129124.7],[154330.8,129124.7],[160630.8,129124.7],[166930.8,129124.7],[173230.8,129124.7],[179530.8,129124.7],[185830.8,129124.7],[192130.8,129124.7],[198430.8,129124.7],[204730.8,129124.7],[211030.8,129124.7],[217330.8,129124.7],[223630.8,129124.7],[229930.8,129124.7],[236230.8,129124.7],[242530.8,129124.7],[248830.8,129124.7],[255130.8,129124.7],[261430.8,129124.7],[267730.8,129124.7],[274030.8,129124.7],[280330.8,129124.7],[286630.8,129124.7],[292930.8,129124.7],[299230.8,129124.7],[28330.8,122824.7],[34630.8,122824.7],[40930.8,122824.7],[47230.8,122824.7],[53530.8,122824.7],[59830.8,122824.7],[66130.8,122824.7],[72430.8,122824.7],[78730.8,122824.7],[85030.8,122824.7],[91330.8,122824.7],[97630.8,122824.7],[103930.8,122824.7],[110230.8,122824.7],[116530.8,122824.7],[122830.8,122824.7],[129130.8,122824.7],[135430.8,122824.7],[141730.8,122824.7],[148030.8,122824.7],[154330.8,122824.7],[160630.8,122824.7],[166930.8,122824.7],[173230.8,122824.7],[179530.8,122824.7],[185830.8,122824.7],[192130.8,122824.7],[198430.8,122824.7],[204730.8,122824.7],[211030.8,122824.7],[217330.8,122824.7],[223630.8,122824.7],[229930.8,122824.7],[236230.8,122824.7],[242530.8,122824.7],[248830.8,122824.7],[255130.8,122824.7],[261430.8,122824.7],[267730.8,122824.7],[274030.8,122824.7],[280330.8,122824.7],[286630.8,122824.7],[292930.8,122824.7],[299230.8,122824.7],[28330.8,116524.7],[34630.8,116524.7],[40930.8,116524.7],[47230.8,116524.7],[53530.8,116524.7],[59830.8,116524.7],[66130.8,116524.7],[72430.8,116524.7],[78730.8,116524.7],[85030.8,116524.7],[91330.8,116524.7],[97630.8,116524.7],[103930.8,116524.7],[110230.8,116524.7],[116530.8,116524.7],[122830.8,116524.7],[129130.8,116524.7],[135430.8,116524.7],[141730.8,116524.7],[148030.8,116524.7],[154330.8,116524.7],[160630.8,116524.7],[166930.8,116524.7],[173230.8,116524.7],[179530.8,116524.7],[185830.8,116524.7],[192130.8,116524.7],[198430.8,116524.7],[204730.8,116524.7],[211030.8,116524.7],[217330.8,116524.7],[223630.8,116524.7],[229930.8,116524.7],[236230.8,116524.7],[242530.8,116524.7],[248830.8,116524.7],[255130.8,116524.7],[261430.8,116524.7],[267730.8,116524.7],[274030.8,116524.7],[280330.8,116524.7],[286630.8,116524.7],[292930.8,116524.7],[299230.8,116524.7],[28330.8,110224.7],[34630.8,110224.7],[40930.8,110224.7],[47230.8,110224.7],[53530.8,110224.7],[59830.8,110224.7],[66130.8,110224.7],[72430.8,110224.7],[78730.8,110224.7],[85030.8,110224.7],[91330.8,110224.7],[97630.8,110224.7],[103930.8,110224.7],[110230.8,110224.7],[116530.8,110224.7],[122830.8,110224.7],[129130.8,110224.7],[135430.8,110224.7],[141730.8,110224.7],[148030.8,110224.7],[154330.8,110224.7],[160630.8,110224.7],[166930.8,110224.7],[173230.8,110224.7],[179530.8,110224.7],[185830.8,110224.7],[192130.8,110224.7],[198430.8,110224.7],[204730.8,110224.7],[211030.8,110224.7],[217330.8,110224.7],[223630.8,110224.7],[229930.8,110224.7],[236230.8,110224.7],[242530.8,110224.7],[248830.8,110224.7],[255130.8,110224.7],[261430.8,110224.7],[267730.8,110224.7],[274030.8,110224.7],[280330.8,110224.7],[286630.8,110224.7],[292930.8,110224.7],[299230.8,110224.7],[34630.8,103924.7],[40930.8,103924.7],[47230.8,103924.7],[53530.8,103924.7],[59830.8,103924.7],[66130.8,103924.7],[72430.8,103924.7],[78730.8,103924.7],[85030.8,103924.7],[91330.8,103924.7],[97630.8,103924.7],[103930.8,103924.7],[110230.8,103924.7],[116530.8,103924.7],[122830.8,103924.7],[129130.8,103924.7],[135430.8,103924.7],[141730.8,103924.7],[148030.8,103924.7],[154330.8,103924.7],[160630.8,103924.7],[166930.8,103924.7],[173230.8,103924.7],[179530.8,103924.7],[185830.8,103924.7],[192130.8,103924.7],[198430.8,103924.7],[204730.8,103924.7],[211030.8,103924.7],[217330.8,103924.7],[223630.8,103924.7],[229930.8,103924.7],[236230.8,103924.7],[242530.8,103924.7],[248830.8,103924.7],[255130.8,103924.7],[261430.8,103924.7],[267730.8,103924.7],[274030.8,103924.7],[280330.8,103924.7],[286630.8,103924.7],[292930.8,103924.7],[34630.8,97624.7],[40930.8,97624.7],[47230.8,97624.7],[53530.8,97624.7],[59830.8,97624.7],[66130.8,97624.7],[72430.8,97624.7],[78730.8,97624.7],[85030.8,97624.7],[91330.8,97624.7],[97630.8,97624.7],[103930.8,97624.7],[110230.8,97624.7],[116530.8,97624.7],[122830.8,97624.7],[129130.8,97624.7],[135430.8,97624.7],[141730.8,97624.7],[148030.8,97624.7],[154330.8,97624.7],[160630.8,97624.7],[166930.8,97624.7],[173230.8,97624.7],[179530.8,97624.7],[185830.8,97624.7],[192130.8,97624.7],[198430.8,97624.7],[204730.8,97624.7],[211030.8,97624.7],[217330.8,97624.7],[223630.8,97624.7],[229930.8,97624.7],[236230.8,97624.7],[242530.8,97624.7],[248830.8,97624.7],[255130.8,97624.7],[261430.8,97624.7],[267730.8,97624.7],[274030.8,97624.7],[280330.8,97624.7],[286630.8,97624.7],[292930.8,97624.7],[40930.8,91324.7],[47230.8,91324.7],[53530.8,91324.7],[59830.8,91324.7],[66130.8,91324.7],[72430.8,91324.7],[78730.8,91324.7],[85030.8,91324.7],[91330.8,91324.7],[97630.8,91324.7],[103930.8,91324.7],[110230.8,91324.7],[116530.8,91324.7],[122830.8,91324.7],[129130.8,91324.7],[135430.8,91324.7],[141730.8,91324.7],[148030.8,91324.7],[154330.8,91324.7],[160630.8,91324.7],[166930.8,91324.7],[173230.8,91324.7],[179530.8,91324.7],[185830.8,91324.7],[192130.8,91324.7],[198430.8,91324.7],[204730.8,91324.7],[211030.8,91324.7],[217330.8,91324.7],[223630.8,91324.7],[229930.8,91324.7],[236230.8,91324.7],[242530.8,91324.7],[248830.8,91324.7],[255130.8,91324.7],[261430.8,91324.7],[267730.8,91324.7],[274030.8,91324.7],[280330.8,91324.7],[286630.8,91324.7],[40930.8,85024.7],[47230.8,85024.7],[53530.8,85024.7],[59830.8,85024.7],[66130.8,85024.7],[72430.8,85024.7],[78730.8,85024.7],[85030.8,85024.7],[91330.8,85024.7],[97630.8,85024.7],[103930.8,85024.7],[110230.8,85024.7],[116530.8,85024.7],[122830.8,85024.7],[129130.8,85024.7],[135430.8,85024.7],[141730.8,85024.7],[148030.8,85024.7],[154330.8,85024.7],[160630.8,85024.7],[166930.8,85024.7],[173230.8,85024.7],[179530.8,85024.7],[185830.8,85024.7],[192130.8,85024.7],[198430.8,85024.7],[204730.8,85024.7],[211030.8,85024.7],[217330.8,85024.7],[223630.8,85024.7],[229930.8,85024.7],[236230.8,85024.7],[242530.8,85024.7],[248830.8,85024.7],[255130.8,85024.7],[261430.8,85024.7],[267730.8,85024.7],[274030.8,85024.7],[280330.8,85024.7],[286630.8,85024.7],[47230.8,78724.7],[53530.8,78724.7],[59830.8,78724.7],[66130.8,78724.7],[72430.8,78724.7],[78730.8,78724.7],[85030.8,78724.7],[91330.8,78724.7],[97630.8,78724.7],[103930.8,78724.7],[110230.8,78724.7],[116530.8,78724.7],[122830.8,78724.7],[129130.8,78724.7],[135430.8,78724.7],[141730.8,78724.7],[148030.8,78724.7],[154330.8,78724.7],[160630.8,78724.7],[166930.8,78724.7],[173230.8,78724.7],[179530.8,78724.7],[185830.8,78724.7],[192130.8,78724.7],[198430.8,78724.7],[204730.8,78724.7],[211030.8,78724.7],[217330.8,78724.7],[223630.8,78724.7],[229930.8,78724.7],[236230.8,78724.7],[242530.8,78724.7],[248830.8,78724.7],[255130.8,78724.7],[261430.8,78724.7],[267730.8,78724.7],[274030.8,78724.7],[280330.8,78724.7],[53530.8,72424.7],[59830.8,72424.7],[66130.8,72424.7],[72430.8,72424.7],[78730.8,72424.7],[85030.8,72424.7],[91330.8,72424.7],[97630.8,72424.7],[103930.8,72424.7],[110230.8,72424.7],[116530.8,72424.7],[122830.8,72424.7],[129130.8,72424.7],[135430.8,72424.7],[141730.8,72424.7],[148030.8,72424.7],[154330.8,72424.7],[160630.8,72424.7],[166930.8,72424.7],[173230.8,72424.7],[179530.8,72424.7],[185830.8,72424.7],[192130.8,72424.7],[198430.8,72424.7],[204730.8,72424.7],[211030.8,72424.7],[217330.8,72424.7],[223630.8,72424.7],[229930.8,72424.7],[236230.8,72424.7],[242530.8,72424.7],[248830.8,72424.7],[255130.8,72424.7],[261430.8,72424.7],[267730.8,72424.7],[274030.8,72424.7],[53530.8,66124.7],[59830.8,66124.7],[66130.8,66124.7],[72430.8,66124.7],[78730.8,66124.7],[85030.8,66124.7],[91330.8,66124.7],[97630.8,66124.7],[103930.8,66124.7],[110230.8,66124.7],[116530.8,66124.7],[122830.8,66124.7],[129130.8,66124.7],[135430.8,66124.7],[141730.8,66124.7],[148030.8,66124.7],[154330.8,66124.7],[160630.8,66124.7],[166930.8,66124.7],[173230.8,66124.7],[179530.8,66124.7],[185830.8,66124.7],[192130.8,66124.7],[198430.8,66124.7],[204730.8,66124.7],[211030.8,66124.7],[217330.8,66124.7],[223630.8,66124.7],[229930.8,66124.7],[236230.8,66124.7],[242530.8,66124.7],[248830.8,66124.7],[255130.8,66124.7],[261430.8,66124.7],[267730.8,66124.7],[274030.8,66124.7],[59830.8,59824.7],[66130.8,59824.7],[72430.8,59824.7],[78730.8,59824.7],[85030.8,59824.7],[91330.8,59824.7],[97630.8,59824.7],[103930.8,59824.7],[110230.8,59824.7],[116530.8,59824.7],[122830.8,59824.7],[129130.8,59824.7],[135430.8,59824.7],[141730.8,59824.7],[148030.8,59824.7],[154330.8,59824.7],[160630.8,59824.7],[166930.8,59824.7],[173230.8,59824.7],[179530.8,59824.7],[185830.8,59824.7],[192130.8,59824.7],[198430.8,59824.7],[204730.8,59824.7],[211030.8,59824.7],[217330.8,59824.7],[223630.8,59824.7],[229930.8,59824.7],[236230.8,59824.7],[242530.8,59824.7],[248830.8,59824.7],[255130.8,59824.7],[261430.8,59824.7],[267730.8,59824.7],[66130.8,53524.7],[72430.8,53524.7],[78730.8,53524.7],[85030.8,53524.7],[91330.8,53524.7],[97630.8,53524.7],[103930.8,53524.7],[110230.8,53524.7],[116530.8,53524.7],[122830.8,53524.7],[129130.8,53524.7],[135430.8,53524.7],[141730.8,53524.7],[148030.8,53524.7],[154330.8,53524.7],[160630.8,53524.7],[166930.8,53524.7],[173230.8,53524.7],[179530.8,53524.7],[185830.8,53524.7],[192130.8,53524.7],[198430.8,53524.7],[204730.8,53524.7],[211030.8,53524.7],[217330.8,53524.7],[223630.8,53524.7],[229930.8,53524.7],[236230.8,53524.7],[242530.8,53524.7],[248830.8,53524.7],[255130.8,53524.7],[261430.8,53524.7],[72430.8,47224.7],[78730.8,47224.7],[85030.8,47224.7],[91330.8,47224.7],[97630.8,47224.7],[103930.8,47224.7],[110230.8,47224.7],[116530.8,47224.7],[122830.8,47224.7],[129130.8,47224.7],[135430.8,47224.7],[141730.8,47224.7],[148030.8,47224.7],[154330.8,47224.7],[160630.8,47224.7],[166930.8,47224.7],[173230.8,47224.7],[179530.8,47224.7],[185830.8,47224.7],[192130.8,47224.7],[198430.8,47224.7],[204730.8,47224.7],[211030.8,47224.7],[217330.8,47224.7],[223630.8,47224.7],[229930.8,47224.7],[236230.8,47224.7],[242530.8,47224.7],[248830.8,47224.7],[255130.8,47224.7],[85030.8,40924.7],[91330.8,40924.7],[97630.8,40924.7],[103930.8,40924.7],[110230.8,40924.7],[116530.8,40924.7],[122830.8,40924.7],[129130.8,40924.7],[135430.8,40924.7],[141730.8,40924.7],[148030.8,40924.7],[154330.8,40924.7],[160630.8,40924.7],[166930.8,40924.7],[173230.8,40924.7],[179530.8,40924.7],[185830.8,40924.7],[192130.8,40924.7],[198430.8,40924.7],[204730.8,40924.7],[211030.8,40924.7],[217330.8,40924.7],[223630.8,40924.7],[229930.8,40924.7],[236230.8,40924.7],[242530.8,40924.7],[91330.8,34624.7],[97630.8,34624.7],[103930.8,34624.7],[110230.8,34624.7],[116530.8,34624.7],[122830.8,34624.7],[129130.8,34624.7],[135430.8,34624.7],[141730.8,34624.7],[148030.8,34624.7],[154330.8,34624.7],[160630.8,34624.7],[166930.8,34624.7],[173230.8,34624.7],[179530.8,34624.7],[185830.8,34624.7],[192130.8,34624.7],[198430.8,34624.7],[204730.8,34624.7],[211030.8,34624.7],[217330.8,34624.7],[223630.8,34624.7],[229930.8,34624.7],[236230.8,34624.7],[103930.8,28324.7],[110230.8,28324.7],[116530.8,28324.7],[122830.8,28324.7],[129130.8,28324.7],[135430.8,28324.7],[141730.8,28324.7],[148030.8,28324.7],[154330.8,28324.7],[160630.8,28324.7],[166930.8,28324.7],[173230.8,28324.7],[179530.8,28324.7],[185830.8,28324.7],[192130.8,28324.7],[198430.8,28324.7],[204730.8,28324.7],[211030.8,28324.7],[217330.8,28324.7],[223630.8,28324.7],[116530.8,22024.7],[122830.8,22024.7],[129130.8,22024.7],[135430.8,22024.7],[141730.8,22024.7],[148030.8,22024.7],[154330.8,22024.7],[160630.8,22024.7],[166930.8,22024.7],[173230.8,22024.7],[179530.8,22024.7],[185830.8,22024.7],[192130.8,22024.7],[198430.8,22024.7],[204730.8,22024.7],[211030.8,22024.7],[141730.8,15724.7],[148030.8,15724.7],[154330.8,15724.7],[160630.8,15724.7],[166930.8,15724.7],[173230.8,15724.7],[179530.8,15724.7],[185830.8,15724.7]],"dx":[[0.2762,0.2994],[0.0711,0.1035],[-0.0183,-0.012],[0.0275,0.0568],[0.0186,0.0551],[-0.0262,-0.0306],[-0.0871,-0.0347],[0.0784,0.0222],[0.1236,0.1571],[0.155,0.1737],[-0.0766,-0.1052],[-0.2411,-0.3402],[-0.0702,-0.1751],[0.2055,0.2982],[0.2305,0.3123],[0.1328,0.2069],[-0.0779,-0.0308],[-0.067,-0.0728],[0.0335,-0.0241],[0.0435,0.0342],[-0.0329,-0.0137],[-0.1234,-0.0253],[0.0986,0.0018],[0.0957,0.0836],[0.0412,0.0718],[-0.1804,-0.198],[-0.3544,-0.4196],[-0.0662,-0.1339],[-0.0883,-0.1597],[-0.1044,-0.1653],[0.1186,0.2935],[-0.0028,0.0903],[0.2071,0.2535],[0.0914,0.1782],[0.0156,0.1195],[-0.1637,-0.1128],[-0.0997,-0.1387],[-0.0062,-0.0377],[0.0304,-0.0137],[-0.0333,-0.0451],[-0.1798,-0.1003],[-0.0021,-0.0804],[0.0241,-0.0229],[0.0023,-0.0578],[-0.2322,-0.2872],[-0.2853,-0.356],[-0.0924,-0.1515],[-0.0911,-0.1269],[-0.1461,-0.1736],[-0.0759,-0.0476],[0.0948,0.0119],[0.1883,0.3734],[0.0066,0.2078],[-0.0924,0.0101],[0.0653,0.075],[0.0773,0.1422],[0.021,0.1094],[-0.1747,-0.1062],[-0.1565,-0.2195],[-0.0759,-0.0581],[-0.0001,-0.0191],[-0.0601,-0.0869],[-0.174,-0.1596],[-0.0612,-0.1206],[-0.0123,-0.0747],[-0.0092,-0.1095],[-0.3295,-0.2889],[-0.4452,-0.4311],[-0.1184,-0.1486],[-0.0637,-0.0675],[-0.1473,-0.1546],[-0.011,0.001],[0.0882,-0.0054],[0.1726,0.0757],[0.0271,-0.043],[0.0164,0.1465],[0.1674,0.3708],[0.0535,0.2564],[-0.0796,0.0207],[0.0787,0.1426],[-0.0099,0.0734],[0.0473,0.1435],[-0.1403,-0.0703],[-0.0382,-0.0784],[-0.0132,0.0336],[0.0108,-0.0006],[-0.0216,-0.0446],[-0.1127,-0.156],[-0.0405,-0.1223],[0.025,-0.003],[-0.0075,-0.0516],[-0.3142,-0.2553],[-0.4172,-0.3951],[-0.1879,-0.1898],[-0.0598,-0.0604],[-0.1165,-0.144],[-0.1054,-0.0821],[0.029,-0.1064],[0.1323,0.0529],[-0.0985,-0.1269],[-0.1184,-0.1559],[0.1987,0.1701],[0.1636,0.1937],[0.0497,0.1789],[0.1474,0.3414],[0.0262,0.2221],[-0.0483,0.0281],[0.0962,0.1443],[0.014,0.0839],[0.0428,0.1218],[-0.1353,-0.0807],[-0.096,-0.1686],[-0.0708,-0.0194],[-0.0238,-0.03],[-0.0481,-0.0656],[-0.1477,-0.1412],[-0.0573,-0.1469],[-0.0349,-0.0537],[-0.0304,-0.0592],[-0.2733,-0.284],[-0.3739,-0.3929],[-0.1314,-0.161],[-0.0198,0.0107],[-0.1014,-0.1475],[0.013,-0.0037],[0.1181,-0.0329],[0.0962,0.0412],[-0.1072,-0.1373],[-0.0873,-0.1626],[-0.0189,-0.0001],[0.0073,0.001],[0.2719,0.289],[0.075,0.022],[0.0958,0.0899],[-0.0414,0.0789],[0.099,0.2847],[-0.0398,0.1655],[-0.1639,-0.0519],[-0.0502,-0.0098],[0.0561,0.0997],[0.003,0.0301],[-0.21,-0.213],[-0.1271,-0.2042],[-0.1209,-0.0615],[-0.0601,-0.0409],[-0.1038,-0.0903],[-0.2136,-0.1499],[-0.061,-0.1928],[-0.0523,-0.089],[-0.0902,-0.0971],[-0.3086,-0.3034],[-0.4292,-0.4714],[-0.07,-0.1026],[-0.0498,-0.0375],[-0.0874,-0.1428],[0.0125,0.0153],[-0.0097,-0.1293],[0.08,0.0456],[-0.1208,-0.1975],[-0.1659,-0.2674],[-0.0452,-0.0315],[0.0134,0.0282],[-0.1196,-0.1154],[0.3069,0.2269],[0.1318,0.0959],[-0.0559,-0.1301],[0.0365,-0.0096],[-0.1664,-0.0587],[0.0095,0.1836],[-0.1081,0.0735],[-0.2524,-0.1714],[0.0131,0.0248],[-0.0869,-0.0342],[-0.0265,-0.0404],[-0.2268,-0.2608],[-0.195,-0.2486],[-0.1366,-0.0787],[-0.1028,-0.0901],[-0.1796,-0.134],[-0.3015,-0.2204],[-0.114,-0.1701],[-0.0777,-0.0682],[-0.0752,-0.0408],[-0.2655,-0.2395],[-0.3169,-0.3632],[-0.1557,-0.1957],[-0.1159,-0.1143],[-0.1833,-0.2004],[-0.163,-0.0979],[0.0369,-0.0628],[0.084,0.0151],[-0.1204,-0.1947],[-0.0818,-0.1347],[-0.1116,-0.1095],[-0.0503,-0.0318],[-0.1118,-0.0914],[-0.3136,-0.3189],[0.1789,0.2191],[0.2557,0.1721],[0.1134,0.0928],[-0.0067,-0.0741],[0.0653,0.0191],[-0.0229,0.1243],[0.0804,0.2332],[-0.0603,0.1127],[-0.1555,-0.0622],[0.0001,-0.005],[0.0568,0.0682],[0.0118,0.0422],[-0.172,-0.1621],[-0.1153,-0.1913],[-0.115,-0.026],[-0.0828,-0.0396],[-0.1379,-0.1053],[-0.2636,-0.1506],[-0.0769,-0.0658],[-0.0329,0.0617],[-0.0046,0.0206],[-0.1826,-0.1778],[-0.4164,-0.4266],[-0.068,-0.1268],[-0.0682,-0.0871],[-0.1629,-0.1727],[-0.0084,0.0783],[0.1197,0.0037],[0.1347,0.0647],[0.0,-0.0917],[-0.0583,-0.1538],[-0.0496,-0.0347],[0.0151,0.0166],[-0.0906,-0.1039],[-0.1865,-0.2209],[-0.1601,-0.2365],[0.1489,0.2066],[0.3388,0.2634],[0.2369,0.2286],[0.1043,0.0583],[0.1312,0.1004],[-0.0098,0.072],[0.118,0.2941],[0.0192,0.2272],[-0.0819,-0.0083],[0.1186,0.1591],[0.0135,0.0771],[0.0447,0.1197],[-0.1221,-0.1011],[-0.0185,-0.0871],[-0.0385,0.0549],[-0.0423,0.0267],[-0.1186,-0.0784],[-0.2026,-0.0807],[-0.0269,0.002],[0.0316,0.1517],[0.0839,0.0879],[-0.1324,-0.1735],[-0.2183,-0.2608],[0.005,-0.0372],[0.0017,-0.0084],[-0.0411,-0.0432],[0.0321,0.1256],[0.1637,0.06],[0.2499,0.2078],[0.062,-0.0205],[0.0461,-0.0996],[0.0601,0.1112],[0.1148,0.1463],[0.0513,0.0691],[-0.0898,-0.0844],[-0.0589,-0.1535],[0.2906,0.1791],[0.2127,0.2243],[0.3106,0.192],[0.243,0.2398],[0.0763,0.0062],[0.127,0.0647],[0.0266,0.0881],[0.1321,0.2405],[0.0249,0.1599],[-0.0739,-0.0273],[0.0933,0.087],[0.0562,0.0633],[0.0615,0.0874],[-0.101,-0.1065],[-0.015,-0.1517],[-0.0213,-0.0114],[-0.0007,0.004],[-0.0634,-0.0452],[-0.207,-0.1075],[-0.0321,-0.0432],[-0.001,0.1062],[0.1026,0.1317],[-0.1523,-0.1547],[-0.2376,-0.2926],[0.0639,0.0206],[0.0935,0.0958],[-0.0207,-0.0363],[0.1118,0.1702],[0.3038,0.1993],[0.2788,0.2329],[0.0994,0.0198],[0.1058,-0.0784],[0.08,0.1004],[0.1166,0.1766],[0.0584,0.1115],[-0.1326,-0.1309],[-0.1178,-0.1899],[0.0012,-0.0073],[0.3744,0.2658],[0.2965,0.1467],[0.215,0.2212],[0.2914,0.1887],[0.245,0.2181],[0.0649,-0.0108],[0.0998,0.0418],[0.0567,0.0686],[0.1793,0.2331],[0.0468,0.1066],[-0.0767,-0.0685],[0.0441,-0.0152],[0.1339,0.0869],[0.1025,0.0761],[-0.1025,-0.139],[-0.0048,-0.1511],[0.0175,0.0032],[0.0615,0.0192],[-0.0445,-0.0693],[-0.1701,-0.0951],[0.0349,0.0139],[0.0423,0.0981],[0.0783,0.0903],[-0.1479,-0.1554],[-0.3119,-0.3878],[0.1428,0.035],[0.1853,0.1277],[0.0416,-0.0061],[0.1361,0.1421],[0.1994,0.032],[0.307,0.2441],[0.1483,0.0476],[0.1045,-0.0797],[0.1326,0.1481],[0.1951,0.2053],[-0.0097,0.0222],[-0.0847,-0.11],[-0.0268,-0.0682],[0.0532,0.0533],[0.0462,-0.003],[0.3278,0.2452],[0.2882,0.1804],[0.1308,0.1399],[0.3405,0.2673],[0.2272,0.2286],[0.0647,0.0337],[0.0962,0.048],[-0.0179,-0.0267],[0.1324,0.1298],[-0.0123,0.0123],[-0.1212,-0.1137],[0.1155,0.0734],[0.0372,-0.0063],[0.0624,0.044],[-0.1393,-0.1656],[-0.1192,-0.2341],[-0.0631,-0.0627],[0.0454,-0.0068],[-0.0624,-0.0935],[-0.1823,-0.1499],[0.0541,-0.0159],[0.0464,0.0255],[0.0827,0.0599],[-0.1416,-0.1624],[-0.1961,-0.3048],[0.1049,-0.0243],[0.1517,0.0242],[0.0342,-0.0682],[0.0717,0.0321],[0.215,0.0547],[0.2876,0.1962],[0.1837,0.0525],[0.1635,0.0015],[0.1487,0.1298],[0.1198,0.1305],[0.0486,0.1175],[-0.0935,-0.1101],[-0.0318,-0.0852],[0.1178,0.0545],[0.0927,-0.0284],[0.2768,0.228],[0.3165,0.2337],[0.2207,0.0745],[0.2082,0.3072],[0.2003,0.1172],[0.1453,0.1665],[0.0156,-0.0272],[0.0353,-0.015],[0.005,0.0675],[0.0889,0.1173],[-0.0974,-0.0474],[-0.1916,-0.1495],[-0.037,-0.0464],[0.025,0.0158],[0.0256,0.0077],[-0.215,-0.2261],[-0.113,-0.2233],[-0.0997,-0.0962],[-0.0257,-0.0587],[-0.0894,-0.1133],[-0.2301,-0.1943],[-0.0268,-0.1186],[0.0084,0.0086],[0.0312,0.0051],[-0.1797,-0.1928],[-0.3185,-0.4243],[0.0391,-0.1],[0.0643,-0.0393],[-0.0108,-0.1163],[0.1149,0.0884],[0.1881,0.0303],[0.194,0.1216],[0.0735,0.0042],[0.0359,-0.1259],[0.0449,0.0526],[0.1064,0.1634],[-0.0098,0.0547],[-0.1422,-0.163],[-0.1494,-0.2095],[0.0611,-0.0215],[0.0124,-0.0951],[-0.0955,-0.1063],[0.1918,0.1934],[0.2283,0.2104],[0.1866,0.0854],[0.1122,0.153],[0.2907,0.1809],[0.1424,0.1376],[-0.0519,-0.0758],[0.012,-0.0141],[-0.0901,0.0133],[-0.0216,0.0868],[-0.0885,0.0022],[-0.212,-0.1577],[-0.0374,-0.0288],[-0.0495,-0.0285],[-0.0362,-0.0242],[-0.2386,-0.243],[-0.1534,-0.2651],[-0.1243,-0.0881],[-0.0475,-0.0549],[-0.0987,-0.1229],[-0.2238,-0.2072],[-0.0397,-0.1047],[-0.0279,-0.002],[0.0209,0.0465],[-0.1841,-0.1537],[-0.2575,-0.344],[0.0414,-0.0803],[0.0564,-0.0209],[0.0145,-0.0626],[0.0375,0.0637],[0.167,0.0131],[0.2264,0.1596],[0.0177,-0.0404],[0.0499,-0.0818],[0.0297,0.0565],[0.0956,0.1378],[-0.013,0.0496],[-0.1995,-0.1761],[-0.0662,-0.097],[0.0207,-0.0371],[-0.0368,-0.0682],[-0.1692,-0.1313],[0.4174,0.4098],[0.1323,0.2274],[0.2636,0.2337],[0.1935,0.1175],[0.1308,0.222],[0.2523,0.1321],[0.1548,0.1308],[-0.0251,-0.0606],[0.0454,0.0054],[-0.0796,0.0243],[0.0181,0.0977],[-0.1111,-0.0367],[-0.2159,-0.1757],[-0.0855,-0.0898],[0.0122,0.0074],[-0.0404,-0.0138],[-0.2373,-0.217],[-0.2044,-0.2863],[-0.1752,-0.125],[-0.063,-0.0296],[-0.0727,-0.056],[-0.1998,-0.1293],[0.0335,0.005],[-0.0242,0.0599],[0.0398,0.1036],[-0.1604,-0.1238],[-0.2418,-0.3055],[0.0943,-0.0208],[0.104,0.0494],[0.0174,-0.0181],[0.1139,0.1273],[0.2197,0.086],[0.2031,0.1546],[0.0334,-0.0299],[0.0551,-0.1015],[0.0979,0.1254],[0.1151,0.1128],[-0.0102,0.0194],[-0.1352,-0.0969],[-0.0763,-0.088],[0.1173,0.0591],[0.0557,0.0239],[-0.1349,-0.1283],[0.0686,-0.0036],[0.3289,0.346],[0.0905,0.1642],[0.2018,0.2167],[0.1351,0.1127],[0.0878,0.1796],[0.1984,0.108],[0.1658,0.1377],[-0.0173,-0.0784],[-0.0415,-0.0998],[-0.1345,-0.0661],[0.0096,0.0879],[-0.116,-0.0367],[-0.2483,-0.1943],[-0.0416,-0.0468],[-0.0569,-0.0539],[-0.0276,-0.0284],[-0.2223,-0.2164],[-0.1377,-0.2192],[-0.1112,-0.0462],[-0.0554,-0.0439],[-0.1095,-0.0891],[-0.229,-0.1179],[0.0101,-0.0015],[0.0143,0.0892],[0.0302,0.0699],[-0.1075,-0.1069],[-0.2224,-0.2822],[0.0377,-0.0523],[0.0423,0.0079],[-0.0009,-0.0132],[0.045,0.0961],[0.1539,0.0144],[0.2346,0.2197],[0.0344,-0.0005],[0.0719,-0.0481],[0.0283,0.0683],[0.0947,0.0874],[0.0337,0.0811],[-0.1059,-0.0614],[-0.0374,-0.0292],[0.0847,0.0752],[0.0559,0.037],[-0.1041,-0.1397],[-0.0691,-0.1702],[0.3326,0.3319],[0.1811,0.205],[0.1852,0.1761],[0.1441,0.1261],[0.0211,0.0964],[0.2641,0.1868],[0.0723,0.0948],[-0.257,-0.3051],[-0.1473,-0.2229],[-0.004,0.0536],[0.0634,0.1713],[-0.1687,-0.0434],[-0.3083,-0.2543],[-0.0502,-0.0552],[-0.1271,-0.1232],[-0.1238,-0.114],[-0.2974,-0.309],[-0.2322,-0.3438],[-0.2031,-0.1398],[-0.148,-0.1172],[-0.2056,-0.1789],[-0.3237,-0.2211],[-0.1144,-0.1028],[-0.0745,0.0076],[0.0005,-0.0144],[-0.1812,-0.2292],[-0.2289,-0.2784],[0.0248,-0.0352],[0.0552,0.0374],[-0.0491,-0.0543],[0.0501,0.0984],[0.2157,0.0721],[0.2179,0.1677],[0.0511,0.0058],[0.0354,-0.0468],[-0.0066,0.0419],[0.0422,0.0517],[0.031,0.0579],[-0.1591,-0.1073],[-0.1004,-0.035],[0.0696,0.0808],[0.0416,0.0378],[-0.1287,-0.1027],[0.0169,-0.0836],[0.3093,0.2189],[0.1438,0.0712],[0.2296,0.21],[0.1592,0.1074],[0.0979,0.1906],[0.1424,0.0822],[0.1032,0.1104],[-0.3273,-0.3846],[-0.2206,-0.3613],[0.0549,0.1232],[0.2761,0.4185],[-0.1617,-0.0177],[-0.2859,-0.2389],[-0.171,-0.1666],[-0.0721,-0.0902],[-0.1384,-0.1361],[-0.321,-0.3311],[-0.2195,-0.3448],[-0.2094,-0.1794],[-0.1562,-0.1157],[-0.2077,-0.1582],[-0.2954,-0.2129],[-0.0675,-0.067],[-0.0629,-0.0046],[-0.0097,-0.0498],[-0.1754,-0.2227],[-0.3079,-0.3328],[0.0406,-0.0005],[0.0498,0.039],[-0.016,-0.0167],[0.0879,0.1427],[0.174,0.0313],[0.2059,0.1701],[0.0347,0.0075],[0.0166,-0.091],[0.0529,0.1092],[0.1401,0.1503],[0.0172,0.0303],[-0.1215,-0.075],[-0.1305,-0.0859],[0.1146,0.1235],[0.0479,0.0615],[-0.0777,-0.053],[0.0649,-0.0321],[0.2868,0.2673],[0.3868,0.3141],[0.1242,0.151],[0.158,0.2028],[0.1387,0.1268],[0.0462,0.153],[0.2295,0.1759],[0.1036,0.1244],[-0.2991,-0.3458],[-0.2477,-0.3974],[-0.0238,0.038],[0.1663,0.3147],[-0.1378,0.0008],[-0.2686,-0.2519],[-0.0682,-0.068],[-0.1672,-0.1407],[-0.1411,-0.1189],[-0.317,-0.3318],[-0.2177,-0.3397],[-0.1895,-0.1619],[-0.1325,-0.098],[-0.1786,-0.1491],[-0.305,-0.2175],[-0.043,-0.1162],[-0.0623,-0.0449],[0.0261,-0.0326],[-0.1433,-0.1772],[-0.1471,-0.1864],[0.0605,-0.0196],[0.0953,0.044],[0.023,0.0022],[-0.012,0.0491],[0.2063,0.0729],[0.2644,0.2357],[0.0935,0.0398],[0.1255,0.0034],[0.1203,0.1436],[0.1792,0.1489],[0.0794,0.0865],[-0.1612,-0.1176],[0.0108,-0.0017],[0.0938,0.0948],[0.1196,0.1206],[-0.0641,-0.0197],[0.012,-0.0419],[0.0031,0.0947],[0.2392,0.242],[0.3382,0.3335],[0.1128,0.2007],[0.1668,0.1923],[0.1049,0.0946],[0.0311,0.1335],[0.1336,0.1045],[0.0773,0.0785],[-0.132,-0.1741],[-0.0615,-0.0657],[-0.0458,0.0157],[0.0376,0.1665],[-0.1751,-0.0557],[-0.2659,-0.206],[-0.1649,-0.1517],[-0.1043,-0.0726],[-0.1361,-0.1029],[-0.303,-0.305],[-0.219,-0.3372],[-0.2156,-0.1755],[-0.132,-0.1138],[-0.1735,-0.1592],[-0.3128,-0.2245],[-0.0863,-0.1811],[-0.0855,-0.0969],[-0.009,-0.0141],[-0.1763,-0.1929],[-0.3289,-0.3518],[0.0751,-0.0179],[0.0768,0.0153],[-0.0106,-0.0313],[0.0878,0.1349],[0.2286,0.135],[0.1719,0.1819],[0.0342,0.0415],[0.0907,-0.0143],[0.0963,0.1135],[0.1464,0.1351],[0.0152,0.0124],[-0.1069,-0.1191],[-0.0253,-0.0413],[0.1188,0.0772],[0.0937,0.0354],[0.0054,-0.0002],[0.1909,0.1249],[0.0114,0.1053],[0.217,0.1992],[0.2734,0.2794],[0.105,0.132],[0.1556,0.1976],[0.0603,0.0629],[-0.0372,0.0794],[0.1515,0.1069],[0.0902,0.0894],[-0.0626,-0.0907],[-0.0751,-0.0879],[-0.1574,-0.0743],[-0.0115,0.0924],[-0.1399,-0.0123],[-0.2853,-0.2069],[-0.1421,-0.1074],[-0.1741,-0.1219],[-0.1142,-0.0833],[-0.275,-0.2814],[-0.1923,-0.3073],[-0.181,-0.1226],[-0.1052,-0.0492],[-0.1356,-0.1083],[-0.2596,-0.2001],[-0.0452,-0.1568],[-0.0459,-0.0656],[0.026,0.0083],[-0.1667,-0.1897],[-0.1966,-0.2402],[0.0869,0.0151],[0.0782,0.0419],[0.045,0.0153],[0.068,0.1402],[0.1927,0.1308],[0.2287,0.2606],[0.0562,0.0507],[0.1284,0.0789],[0.0998,0.1331],[0.1467,0.1622],[0.1272,0.1493],[-0.008,-0.0131],[0.0269,-0.0002],[0.1427,0.1011],[0.1124,0.0759],[0.0978,0.0858],[0.1501,0.0659],[0.086,0.1665],[0.1697,0.2295],[0.3468,0.3564],[0.1801,0.1866],[0.1669,0.1828],[0.0966,0.0991],[-0.0203,0.0804],[0.1486,0.0862],[0.0382,0.0314],[-0.0851,-0.1247],[-0.0761,-0.0771],[-0.148,-0.0542],[-0.0757,0.0604],[-0.2016,-0.0053],[-0.3089,-0.1867],[-0.1752,-0.1419],[-0.201,-0.1419],[-0.1176,-0.0827],[-0.2468,-0.2595],[-0.1904,-0.3057],[-0.1686,-0.1182],[-0.0828,-0.0579],[-0.1267,-0.0889],[-0.276,-0.1665],[-0.046,-0.121],[-0.0649,-0.0699],[0.0565,0.0396],[-0.0957,-0.1552],[-0.1325,-0.1886],[0.1274,0.0599],[0.13,0.1242],[0.0473,0.0516],[0.105,0.181],[0.3023,0.2087],[0.2295,0.2334],[0.0748,0.0906],[0.1069,0.0934],[0.0717,0.1375],[0.1425,0.1734],[0.169,0.1895],[-0.0334,-0.0191],[0.0164,0.0138],[0.1608,0.1469],[0.1478,0.165],[0.0299,0.0719],[0.2147,0.171],[0.0024,0.1299],[0.2623,0.3175],[0.2634,0.2554],[0.1214,0.0809],[0.2313,0.2273],[0.0779,0.0485],[0.0506,0.1267],[0.0822,0.0159],[0.0571,0.0397],[-0.1077,-0.1467],[-0.096,-0.0999],[-0.2078,-0.0835],[-0.0916,0.0829],[-0.2078,-0.0029],[-0.3457,-0.2212],[-0.2437,-0.1923],[-0.1207,-0.0917],[-0.1101,-0.1021],[-0.2485,-0.2569],[-0.1504,-0.2572],[-0.1273,-0.1122],[-0.0743,-0.0479],[-0.1155,-0.0625],[-0.2513,-0.1187],[-0.0421,-0.0834],[-0.0523,-0.0063],[0.0494,0.0322],[-0.0756,-0.131],[-0.1553,-0.2269],[0.1932,0.1327],[0.1613,0.1824],[0.1061,0.1123],[0.1104,0.2157],[0.1706,0.0813],[0.2404,0.2375],[0.0894,0.076],[0.0861,0.058],[0.1384,0.2233],[0.2223,0.2628],[0.1161,0.1518],[0.0316,0.0559],[0.0649,0.0803],[0.1372,0.1667],[0.0829,0.1282],[0.0611,0.1169],[0.123,0.1228],[0.1087,0.233],[0.193,0.1937],[0.391,0.3498],[0.1408,0.1116],[0.174,0.1649],[0.1054,0.0473],[-0.0073,0.0607],[0.2017,0.0889],[0.0235,0.018],[-0.1435,-0.163],[-0.143,-0.1229],[-0.278,-0.1817],[-0.1537,0.0308],[-0.2823,-0.0841],[-0.3817,-0.2527],[-0.142,-0.0615],[-0.1862,-0.1613],[-0.1134,-0.1063],[-0.3055,-0.2897],[-0.2133,-0.309],[-0.1446,-0.1084],[-0.0512,-0.0225],[-0.0653,-0.0217],[-0.2638,-0.1226],[-0.028,-0.0482],[-0.0864,-0.0283],[0.0453,0.0357],[-0.1175,-0.1687],[-0.0776,-0.1471],[0.1519,0.1013],[0.1633,0.1738],[0.0972,0.1203],[0.0577,0.1707],[0.2272,0.1637],[0.2458,0.2329],[0.0948,0.0725],[0.1978,0.2014],[0.1355,0.2366],[0.1552,0.2216],[0.1516,0.2206],[-0.0135,0.0629],[0.0873,0.1299],[0.1205,0.1611],[0.1146,0.1827],[0.0073,0.0976],[0.1045,0.1062],[0.0161,0.2116],[0.2155,0.1697],[0.312,0.285],[0.1353,0.0676],[0.2311,0.1894],[0.1353,0.039],[0.0458,0.0735],[0.1479,0.0469],[0.0304,0.0093],[-0.1265,-0.1979],[-0.1215,-0.1605],[-0.1893,-0.0748],[-0.1218,0.0418],[-0.3057,-0.1127],[-0.2957,-0.1814],[-0.1202,-0.0742],[-0.0538,-0.0476],[-0.0684,-0.0611],[-0.2413,-0.2342],[-0.1544,-0.2355],[-0.1376,-0.0589],[-0.0628,0.0088],[-0.09,-0.0259],[-0.2435,-0.0901],[-0.0287,-0.0515],[-0.0177,0.0146],[0.1054,0.0871],[-0.0396,-0.0856],[-0.1836,-0.2304],[0.1643,0.1145],[0.1335,0.1766],[0.0565,0.1237],[0.132,0.2528],[0.2807,0.2175],[0.2643,0.2768],[0.1569,0.1453],[0.1647,0.1248],[0.1608,0.215],[0.2258,0.2604],[0.1088,0.1681],[0.0128,0.0972],[0.0409,0.1097],[0.1301,0.2069],[0.0707,0.1698],[0.0428,0.1058],[0.1311,0.1538],[0.0044,0.2315],[0.3081,0.2256],[0.3402,0.2923],[0.1943,0.1444],[0.2442,0.2202],[0.1693,0.0831],[0.0687,0.0729],[0.1927,0.0903],[0.097,0.0508],[-0.0946,-0.1823],[-0.0946,-0.1226],[-0.2004,-0.1032],[-0.0845,0.0126],[-0.146,-0.0602],[-0.2111,-0.1453],[-0.0062,0.0077],[-0.0625,-0.0356],[-0.0186,-0.0276],[-0.1792,-0.2112],[-0.0928,-0.2087],[-0.1102,-0.0325],[-0.0329,0.0389],[-0.0917,0.0121],[-0.2296,-0.0696],[0.0067,-0.0486],[0.0422,0.0611],[0.1211,0.1047],[-0.0188,-0.0858],[-0.0709,-0.1125],[0.1886,0.1711],[0.1604,0.1902],[0.1261,0.2027],[0.1323,0.2623],[0.2673,0.2043],[0.3361,0.3465],[0.2089,0.1878],[0.2354,0.2067],[0.2236,0.2347],[0.2824,0.2981],[0.1936,0.2602],[0.0529,0.1464],[0.0562,0.1499],[0.1402,0.2459],[0.1189,0.2459],[0.0422,0.1421],[0.1189,0.1302],[0.1298,0.3317],[0.4205,0.3398],[0.2274,0.155],[0.314,0.2597],[0.2171,0.1037],[0.108,0.126],[0.1838,0.0655],[0.1129,0.0703],[-0.0692,-0.1417],[-0.0,-0.0327],[-0.0755,-0.003],[0.0108,0.0711],[-0.1247,-0.0716],[-0.1871,-0.128],[-0.0381,-0.0296],[-0.0172,-0.0007],[0.0032,0.0205],[-0.1427,-0.1526],[-0.0995,-0.2086],[-0.0986,-0.0524],[-0.0153,0.0492],[-0.0302,0.036],[-0.2112,-0.0961],[0.0439,-0.0361],[0.0709,0.079],[0.1439,0.1456],[-0.0032,-0.0268],[-0.0464,-0.0564],[0.2319,0.2126],[0.2406,0.2814],[0.1474,0.1723],[0.1866,0.2796],[0.3414,0.2648],[0.3095,0.3015],[0.169,0.1473],[0.1923,0.1387],[0.202,0.2432],[0.2414,0.2629],[0.2115,0.2762],[-0.0089,0.0831],[0.0185,0.114],[0.1991,0.268],[0.1985,0.2793],[0.0675,0.1658],[0.2195,0.2487],[0.3807,0.2783],[0.1678,0.0688],[0.2533,0.203],[0.2144,0.0977],[0.1018,0.1414],[0.1698,0.0546],[0.1372,0.0675],[-0.0194,-0.134],[-0.0146,-0.0773],[-0.1059,-0.0621],[0.0592,0.0889],[-0.0713,-0.0006],[-0.1636,-0.1118],[-0.0607,-0.05],[-0.009,0.0072],[0.0033,0.0027],[-0.1815,-0.174],[-0.0832,-0.1578],[-0.0538,-0.0308],[0.0201,0.0355],[-0.0163,0.0016],[-0.1863,-0.0992],[0.0557,-0.0328],[0.0899,0.0743],[0.0951,0.1229],[-0.0332,-0.0167],[-0.1226,-0.1177],[0.1785,0.1729],[0.1852,0.1848],[0.1436,0.1293],[0.114,0.2153],[0.2258,0.1421],[0.3152,0.3124],[0.1652,0.157],[0.1384,0.0925],[0.2125,0.2983],[0.2355,0.3021],[0.126,0.1861],[-0.0228,0.0746],[-0.0033,0.1127],[0.1217,0.2019],[0.1005,0.1701],[0.0218,0.0871],[0.0185,0.0444],[0.4669,0.35],[0.2301,0.1258],[0.2464,0.1529],[0.1906,0.0813],[0.0302,0.0437],[0.2599,0.143],[0.0429,0.0044],[-0.0971,-0.1864],[-0.044,-0.0829],[-0.1277,-0.0826],[0.0083,0.0484],[-0.1197,-0.0552],[-0.2183,-0.1315],[-0.0378,-0.0059],[-0.1108,-0.0836],[-0.0763,-0.0613],[-0.271,-0.2445],[-0.1973,-0.2781],[-0.1504,-0.1209],[-0.0294,0.0031],[-0.0684,-0.0663],[-0.2328,-0.1758],[0.0064,-0.113],[-0.0409,-0.0463],[0.0312,0.0494],[-0.1355,-0.0979],[-0.0845,-0.097],[0.2015,0.173],[0.1876,0.2017],[0.1323,0.1249],[0.0863,0.1645],[0.2377,0.1716],[0.242,0.2597],[0.0931,0.0755],[0.1752,0.1356],[0.0407,0.1253],[0.0975,0.1662],[0.0667,0.1508],[-0.0976,-0.0137],[-0.0345,0.048],[0.0805,0.1539],[0.0775,0.1537],[-0.0641,0.0126],[0.0641,0.0718],[0.4438,0.3555],[0.1874,0.0612],[0.281,0.169],[0.1571,0.004],[0.0926,0.0775],[0.0996,0.0001],[0.0799,0.0566],[-0.0831,-0.1383],[-0.0847,-0.105],[-0.0884,0.013],[0.0029,0.0582],[-0.1394,-0.0782],[-0.2153,-0.1386],[-0.1313,-0.1036],[-0.0735,-0.0671],[-0.0891,-0.0845],[-0.2833,-0.2709],[-0.1461,-0.2236],[-0.1337,-0.0679],[-0.0332,-0.0017],[-0.0699,-0.0507],[-0.2324,-0.1565],[-0.0029,-0.1136],[-0.0269,-0.0274],[0.0024,0.0717],[-0.1049,-0.0863],[-0.1645,-0.1662],[0.1792,0.1523],[0.1517,0.1448],[0.0891,0.0642],[0.1412,0.2177],[0.2413,0.1591],[0.1637,0.2161],[0.0594,0.0693],[0.0414,0.0227],[0.047,0.1236],[0.1229,0.1867],[-0.0019,0.0904],[-0.0828,0.0202],[-0.1112,-0.0279],[0.0688,0.0679],[0.0102,0.0057],[-0.0601,-0.0675],[0.0731,0.0044],[0.2311,0.1366],[0.2589,0.1867],[0.1828,0.0552],[0.0413,0.0292],[0.2085,0.0785],[0.114,0.0732],[-0.1131,-0.1604],[-0.1263,-0.114],[-0.1498,-0.0499],[-0.0556,0.0153],[-0.1015,-0.0323],[-0.2392,-0.163],[-0.0915,-0.0703],[-0.1251,-0.1109],[-0.0966,-0.0802],[-0.2672,-0.2371],[-0.1467,-0.245],[-0.1484,-0.0514],[-0.0678,-0.0002],[-0.1129,-0.0557],[-0.2294,-0.1221],[0.0143,-0.1182],[-0.0185,-0.0093],[0.0245,0.1223],[-0.0852,-0.049],[-0.0774,-0.124],[0.1867,0.1526],[0.1612,0.1415],[0.1056,0.0766],[0.0969,0.1831],[0.1913,0.0997],[0.2016,0.2437],[0.0223,0.0509],[0.074,0.0597],[0.0557,0.1224],[0.1015,0.1682],[0.0491,0.1626],[-0.1534,-0.0011],[-0.0405,0.0884],[0.0348,0.0177],[0.018,0.0234],[-0.0829,-0.0857],[0.3091,0.2255],[0.316,0.1893],[0.1999,0.0435],[0.1144,0.0966],[0.1308,0.0418],[0.1115,0.0711],[-0.0824,-0.1327],[-0.0094,-0.031],[-0.1063,-0.0305],[0.0093,0.0653],[-0.1591,-0.0818],[-0.2406,-0.18],[-0.1117,-0.1281],[-0.0399,-0.047],[-0.0953,-0.0773],[-0.2833,-0.2738],[-0.1966,-0.3036],[-0.1755,-0.1366],[-0.0325,0.0455],[-0.0857,-0.033],[-0.2252,-0.1253],[0.0567,-0.0614],[-0.0534,-0.0545],[-0.1085,-0.0396],[-0.1462,-0.1211],[-0.0675,-0.1538],[0.2685,0.1744],[0.2104,0.2022],[0.0775,0.0786],[0.1044,0.179],[0.2291,0.1411],[0.1837,0.1871],[0.0286,0.0073],[0.0257,0.0153],[0.1174,0.165],[0.1295,0.2141],[-0.0105,0.1134],[-0.1177,-0.022],[-0.0681,-0.0181],[0.0885,0.0792],[0.0209,0.0032],[-0.1268,-0.121],[0.2805,0.1888],[0.1686,0.0612],[0.113,0.1023],[0.1107,0.0344],[0.1584,0.0963],[-0.059,-0.1514],[-0.1315,-0.1759],[-0.1542,-0.1106],[-0.0135,0.069],[-0.1315,-0.0388],[-0.2678,-0.1873],[-0.0556,-0.0556],[-0.1018,-0.0993],[-0.1147,-0.1084],[-0.3206,-0.3326],[-0.0832,-0.2027],[-0.0625,-0.0311],[-0.0282,0.0207],[-0.1217,-0.0829],[-0.3171,-0.2288],[-0.067,-0.1561],[-0.0781,-0.0836],[-0.2352,-0.1856],[-0.2338,-0.2195],[0.0337,-0.0554],[0.252,0.159],[0.1614,0.0972],[0.0821,0.0419],[0.0651,0.1436],[0.1675,0.078],[0.2322,0.2317],[0.026,0.0161],[0.091,0.08],[0.0394,0.0767],[0.1389,0.228],[0.041,0.162],[-0.1527,-0.0848],[-0.0708,-0.0516],[0.0433,0.0505],[-0.0092,0.007],[0.2378,0.1758],[0.1538,0.0982],[0.0803,0.0733],[0.2847,0.1903],[0.1346,0.0774],[-0.0782,-0.1601],[-0.0538,-0.1349],[-0.0727,-0.0029],[0.009,0.0856],[-0.1088,-0.0409],[-0.2096,-0.1494],[-0.055,-0.073],[-0.091,-0.0979],[-0.0707,-0.0612],[-0.2761,-0.2756],[-0.148,-0.2538],[-0.1424,-0.1007],[-0.0362,0.0108],[-0.1522,-0.0911],[-0.2996,-0.2015],[-0.0581,-0.1368],[-0.0626,-0.0555],[-0.0643,-0.057],[-0.231,-0.2588],[-0.0448,-0.1188],[0.2722,0.1582],[0.2168,0.1462],[0.0559,0.0187],[0.0891,0.1448],[0.2828,0.1873],[0.2131,0.207],[0.0493,0.0314],[0.0985,0.0857],[0.0054,0.0529],[0.0897,0.1425],[0.034,0.1133],[-0.1817,-0.0787],[-0.086,-0.0196],[0.0235,0.0545],[0.0607,0.1096],[0.1765,0.1104],[0.1817,0.2071],[0.2153,0.11],[0.2433,0.1759],[-0.0312,-0.1209],[-0.0154,-0.1286],[-0.049,-0.0035],[0.0918,0.191],[-0.0542,0.0135],[-0.1786,-0.1032],[-0.1168,-0.1112],[-0.0381,-0.048],[-0.0164,-0.0006],[-0.2532,-0.2587],[-0.0783,-0.2055],[-0.0889,-0.0477],[0.0038,0.074],[-0.1481,-0.0859],[-0.2957,-0.191],[-0.0259,-0.1093],[0.029,0.0519],[0.012,0.0102],[-0.1634,-0.2272],[-0.1572,-0.2501],[0.291,0.2066],[0.2357,0.1721],[0.1063,0.0461],[0.1134,0.1647],[0.1771,0.0389],[0.2251,0.2284],[0.0281,0.0098],[0.0445,0.0113],[0.0693,0.1214],[0.1716,0.1993],[0.0654,0.0459],[-0.0818,0.0085],[-0.1545,-0.0588],[-0.0235,0.0323],[0.1491,0.1789],[0.2887,0.1925],[0.2643,0.1674],[-0.0396,-0.155],[-0.0247,-0.073],[-0.1209,-0.072],[0.1044,0.1447],[-0.0131,0.0048],[-0.2116,-0.0844],[-0.0246,0.025],[-0.1153,-0.0936],[-0.0088,0.0128],[-0.2506,-0.272],[-0.0816,-0.2287],[-0.0848,-0.0224],[0.0072,0.0924],[-0.1489,-0.0668],[-0.2899,-0.162],[-0.0271,-0.0674],[0.0042,0.0947],[0.0354,0.0517],[-0.1493,-0.2075],[0.0243,-0.065],[0.264,0.1877],[0.2618,0.182],[0.1182,0.0505],[0.0815,0.1201],[0.2675,0.1267],[0.2524,0.2307],[-0.0118,-0.03],[0.1306,0.1021],[0.122,0.1216],[0.2064,0.2057],[0.1381,0.1127],[-0.1197,-0.1294],[-0.1339,-0.0669],[0.3698,0.4016],[0.256,0.2068],[0.2242,0.168],[-0.0342,-0.1404],[-0.008,-0.0669],[0.0115,0.0569],[0.1453,0.1835],[-0.0763,-0.0464],[-0.1743,-0.0975],[-0.0631,-0.08],[0.0689,0.031],[-0.0373,-0.0134],[-0.2929,-0.2788],[-0.116,-0.2027],[-0.0781,-0.0293],[0.0464,0.0975],[-0.1184,-0.0585],[-0.2808,-0.1686],[-0.0286,-0.0399],[0.0138,0.1086],[0.0598,0.0502],[-0.1353,-0.1711],[-0.2242,-0.2525],[0.2825,0.2351],[0.2522,0.2053],[0.0957,0.0138],[0.174,0.1761],[0.2494,0.1482],[0.2217,0.199],[0.0014,-0.0265],[0.0342,-0.0059],[0.0742,0.0728],[0.1733,0.2336],[-0.0001,0.1173],[-0.1401,-0.136],[-0.2282,-0.241],[0.3836,0.3815],[0.2316,0.1982],[-0.0746,-0.159],[-0.0291,-0.1065],[-0.0935,-0.0401],[0.1585,0.2498],[-0.0208,0.08],[-0.2382,-0.1817],[-0.0064,-0.0528],[0.0049,-0.0254],[-0.0355,-0.0196],[-0.385,-0.3632],[-0.1204,-0.2048],[-0.0475,-0.0567],[0.0733,0.0897],[-0.1483,-0.1493],[-0.3182,-0.2196],[-0.1216,-0.1575],[0.0326,0.1312],[0.1047,0.102],[-0.1568,-0.1773],[-0.1059,-0.1557],[0.2536,0.1778],[0.1543,0.1238],[0.0511,-0.02],[0.0747,0.0435],[0.0948,0.0523],[0.2383,0.2036],[-0.0342,-0.0758],[0.0603,0.0211],[-0.0819,-0.0414],[0.0581,0.1659],[-0.0557,0.0685],[-0.1188,-0.0898],[0.099,0.1023],[-0.0924,-0.1756],[-0.0147,-0.0932],[0.0174,-0.0133],[0.1511,0.2382],[-0.0347,0.0791],[-0.2156,-0.1529],[-0.1047,-0.094],[-0.0084,-0.0139],[-0.0413,-0.0448],[-0.3457,-0.3491],[-0.1741,-0.2628],[-0.111,-0.1174],[0.0469,-0.0049],[-0.1866,-0.1798],[-0.3564,-0.2811],[-0.1571,-0.1756],[-0.0185,0.0493],[0.0878,0.0593],[-0.194,-0.1996],[-0.1337,-0.1736],[0.2427,0.1331],[0.1664,0.1221],[-0.0521,-0.1535],[0.0666,-0.0039],[0.207,0.1532],[0.1893,0.1851],[-0.0951,-0.1224],[-0.0147,-0.0491],[-0.2188,-0.182],[0.0398,0.1201],[0.0807,0.1388],[0.0886,0.009],[0.063,-0.0022],[-0.0604,-0.0396],[0.1528,0.2159],[-0.0447,0.0608],[-0.1748,-0.0808],[-0.1789,-0.0809],[0.0385,-0.0004],[-0.0193,-0.032],[-0.3517,-0.3835],[-0.157,-0.2691],[-0.1265,-0.0793],[0.0099,0.0243],[-0.2164,-0.1982],[-0.3496,-0.2712],[-0.163,-0.1259],[0.0597,0.0906],[0.0137,-0.0291],[-0.1957,-0.2343],[-0.2269,-0.2962],[0.24,0.1227],[0.1634,0.0714],[-0.0044,-0.1034],[0.082,0.0408],[0.0938,-0.012],[0.1329,0.1825],[-0.1371,-0.1286],[-0.0673,-0.1455],[-0.1546,-0.0641],[0.3796,0.4824],[0.0054,0.0691],[0.143,0.2107],[-0.0607,0.0465],[-0.2903,-0.2157],[-0.0487,-0.0324],[-0.0211,-0.0904],[-0.062,-0.0898],[-0.4111,-0.4389],[-0.2262,-0.3432],[-0.1767,-0.1543],[0.0142,0.0742],[-0.2464,-0.164],[-0.3418,-0.2434],[-0.1004,-0.1045],[-0.0561,0.0232],[-0.0367,-0.0789],[-0.2849,-0.3298],[-0.184,-0.276],[0.193,0.0584],[0.1657,0.131],[-0.0124,-0.0423],[-0.0349,-0.0066],[0.1372,0.0583],[0.1589,0.1706],[-0.189,-0.2257],[-0.1152,-0.2255],[0.3051,0.4067],[-0.202,-0.0397],[-0.1859,-0.1406],[-0.0642,-0.0661],[0.0287,-0.0201],[-0.0102,-0.0782],[-0.3931,-0.4324],[-0.1431,-0.199],[-0.0827,-0.0766],[0.0348,0.0895],[-0.167,-0.1155],[-0.3715,-0.3541],[-0.1684,-0.1538],[-0.0017,0.0984],[-0.0442,-0.0793],[-0.2583,-0.3258],[-0.3106,-0.4003],[0.1582,0.0072],[0.0926,0.0452],[-0.1468,-0.2154],[0.0464,0.0487],[0.166,0.1466],[0.2418,0.222],[-0.0517,-0.0127],[-0.273,-0.1642],[0.1196,0.122],[-0.0297,-0.0683],[-0.0148,-0.1315],[-0.3887,-0.5272],[-0.1722,-0.274],[-0.1506,-0.133],[0.039,0.0519],[-0.2427,-0.1811],[-0.3519,-0.2897],[-0.1781,-0.1914],[0.0014,0.0976],[-0.0153,-0.0913],[-0.2862,-0.3491],[-0.262,-0.2959],[0.1831,0.0652],[0.0921,0.0084],[-0.0428,-0.1146],[-0.0268,-0.127],[0.5522,0.4554],[-0.0917,-0.136],[0.0928,0.3301],[-0.1251,-0.4405],[-0.0257,-0.1435],[-0.3349,-0.3237],[-0.0355,-0.0811],[-0.2308,-0.2223],[-0.3958,-0.3249],[-0.2148,-0.1609],[-0.0581,0.0024],[-0.1335,-0.1901],[-0.2856,-0.3925],[-0.397,-0.415],[0.259,0.2247],[0.4083,0.3586],[-0.026,-0.0772],[0.3127,0.0812],[0.0014,0.0283],[-0.1561,-0.1287],[-0.2543,-0.1956],[-0.0784,-0.0166],[0.1697,0.1949],[-0.0772,-0.1186],[-0.1673,-0.1808]],"dy":[[-0.1135,-0.1009],[-0.1634,-0.1612],[-0.1086,-0.122],[-0.0315,-0.0765],[-0.0332,-0.1735],[-0.0646,-0.146],[0.0199,-0.0099],[-0.007,-0.0407],[0.0057,-0.0494],[-0.0156,-0.0898],[-0.196,-0.2087],[-0.1333,-0.1274],[-0.1471,-0.2359],[0.0696,0.0528],[0.0874,0.0727],[0.197,0.2241],[0.1478,0.1477],[0.0047,0.0172],[0.0723,0.0283],[0.0583,-0.0102],[0.0485,-0.0316],[0.1244,0.0984],[0.0216,0.0019],[0.2747,0.2061],[0.1491,0.1002],[0.0648,0.0234],[-0.107,-0.13],[-0.1834,-0.2323],[-0.0946,-0.1216],[-0.0436,-0.0561],[0.071,-0.014],[-0.0286,-0.0505],[0.093,0.062],[0.0907,0.0846],[0.1016,0.153],[0.0437,0.0857],[0.0329,0.0438],[0.0533,0.0296],[0.1318,0.0653],[0.0937,0.0043],[0.0766,0.0308],[0.0529,0.0833],[0.1543,0.1566],[0.1021,0.0506],[-0.0579,-0.1328],[-0.0744,-0.1385],[-0.0968,-0.169],[-0.0867,-0.156],[-0.0887,-0.0967],[0.0297,-0.0375],[-0.0589,-0.1245],[0.0144,0.0001],[0.0316,-0.017],[0.0748,0.0578],[0.1686,0.1446],[0.0223,-0.0066],[-0.0504,-0.0339],[-0.1049,-0.0996],[-0.049,-0.0592],[-0.0391,-0.041],[0.0977,0.0281],[0.0727,0.019],[0.001,0.002],[0.0183,-0.0229],[0.0146,0.0094],[-0.0616,-0.0767],[-0.2261,-0.2786],[-0.2071,-0.2386],[-0.0561,-0.149],[-0.0267,-0.0907],[-0.1081,-0.1108],[-0.0862,-0.111],[0.1237,0.0561],[0.1726,0.0931],[0.0092,0.0081],[0.0349,0.0625],[-0.0077,-0.0217],[0.0649,0.05],[0.0292,0.0207],[0.0023,0.0074],[0.0814,0.0793],[0.1516,0.2209],[0.0773,0.1074],[0.0248,0.052],[0.0819,0.0349],[0.0966,0.0344],[0.1108,0.0444],[0.1013,0.1169],[0.1175,0.0301],[0.2471,0.2355],[0.1115,0.1166],[0.0006,-0.0652],[0.0351,-0.022],[0.0828,0.0111],[0.0588,0.0101],[-0.0058,0.0478],[-0.0475,-0.06],[0.0391,-0.0027],[0.3146,0.2621],[0.292,0.2882],[0.118,0.1068],[0.0667,0.08],[0.0807,0.053],[0.0561,0.0294],[-0.0448,-0.0426],[-0.0226,-0.0504],[0.0316,-0.0036],[0.0777,0.0943],[0.1046,0.117],[0.1173,0.1974],[0.0957,0.1206],[0.1003,0.1431],[0.1364,0.0643],[0.0965,-0.0006],[0.0981,0.0409],[0.2198,0.1866],[0.2775,0.1879],[0.2477,0.1911],[0.2047,0.1571],[0.0,-0.0358],[0.0553,-0.0383],[-0.0127,-0.1239],[0.0424,0.0295],[-0.0068,0.038],[-0.0476,-0.0887],[-0.0304,-0.0953],[0.1128,0.0154],[0.1564,0.1474],[0.0728,0.1157],[0.1093,0.1463],[0.0386,0.0067],[0.2278,0.2541],[0.2034,0.2005],[0.0863,0.0242],[0.0152,-0.0162],[0.0275,0.0168],[0.042,0.0154],[0.0357,0.0112],[0.1813,0.2086],[0.1319,0.1784],[0.1402,0.2298],[0.0577,0.139],[0.0201,0.0297],[0.0835,0.0244],[0.106,0.0685],[0.1249,0.0686],[0.1637,0.1082],[0.1564,0.0811],[0.2879,0.2306],[0.1151,0.1156],[0.0529,0.0022],[-0.0427,-0.0848],[0.0339,-0.0674],[0.0404,-0.0438],[0.0662,0.0651],[0.1303,0.1075],[0.0683,0.0124],[0.1625,0.0346],[0.0038,-0.0385],[0.0208,0.0829],[0.0087,0.0084],[0.1653,0.1909],[0.0735,0.1736],[0.1617,0.2165],[0.2302,0.246],[0.1033,0.1031],[0.0873,0.0834],[-0.0923,-0.0836],[0.0048,-0.0204],[0.0697,0.0204],[0.1583,0.1047],[0.2028,0.223],[0.098,0.1032],[0.0303,0.1207],[0.0533,0.0976],[0.1166,0.138],[0.1536,0.1247],[0.206,0.1595],[0.159,0.1432],[0.2019,0.1629],[0.2031,0.1685],[0.1819,0.158],[0.0757,0.0912],[-0.0917,-0.0528],[0.0452,0.0306],[0.1264,0.0208],[0.1684,0.0604],[0.1937,0.1789],[0.2362,0.1719],[0.3107,0.2571],[0.4103,0.3571],[0.3223,0.3379],[0.3193,0.3237],[0.1112,0.1164],[0.2949,0.2968],[0.2997,0.3787],[0.2749,0.318],[0.1317,0.1216],[0.0974,0.1659],[0.0796,0.118],[-0.0308,-0.016],[0.027,0.0117],[-0.0202,-0.0056],[0.067,0.0666],[0.0928,0.0318],[0.146,0.0358],[0.1672,0.1226],[0.1556,0.1627],[0.1713,0.2169],[0.1777,0.1688],[0.2045,0.148],[0.24,0.1863],[0.2289,0.1855],[0.1904,0.1385],[0.2142,0.1735],[0.2354,0.1438],[0.2466,0.2018],[0.1309,0.1249],[0.0309,0.0087],[0.1471,0.0833],[0.2332,0.1692],[0.2665,0.2118],[0.3148,0.2712],[0.3017,0.1642],[0.3495,0.3044],[0.4597,0.41],[0.4527,0.372],[0.4471,0.3867],[0.2643,0.2755],[0.3899,0.3685],[0.4165,0.4007],[0.3577,0.3718],[0.465,0.4759],[0.1385,0.108],[-0.0408,0.0291],[0.0478,0.1139],[0.1163,0.1702],[0.1624,0.1719],[0.0662,0.0777],[0.0274,0.0003],[0.1238,0.0777],[0.0755,0.0462],[0.15,0.0992],[0.2067,0.2104],[0.3618,0.3676],[0.2956,0.2605],[0.2749,0.2137],[0.2833,0.2777],[0.2549,0.2744],[0.1703,0.2211],[0.2529,0.2871],[0.3477,0.2021],[0.4594,0.3465],[0.3004,0.2571],[0.1809,0.1527],[0.246,0.1804],[0.1976,0.0969],[0.2037,0.099],[0.261,0.2393],[0.2935,0.1961],[0.2086,0.1367],[0.4331,0.3583],[0.4458,0.3908],[0.2661,0.2584],[0.3591,0.4138],[0.4232,0.4213],[0.393,0.3919],[0.2752,0.3533],[0.2651,0.3326],[-0.0026,0.0095],[0.036,0.0438],[0.1334,0.1943],[0.1546,0.1987],[0.1535,0.1451],[0.1527,0.1872],[0.0181,0.0196],[0.0767,0.0522],[0.0727,0.0505],[0.1048,0.0298],[0.2436,0.2132],[0.1635,0.1838],[0.1582,0.2108],[0.1651,0.1414],[0.21,0.2144],[0.2079,0.2074],[0.1726,0.1444],[0.1423,0.1506],[0.2429,0.2334],[0.3164,0.2458],[0.3293,0.2757],[0.2474,0.1662],[0.0351,0.0074],[0.2223,0.164],[0.2689,0.156],[0.3131,0.2226],[0.2614,0.1782],[0.2717,0.1705],[0.2639,0.218],[0.3224,0.2323],[0.2675,0.2345],[0.2571,0.3017],[0.2723,0.3346],[0.3017,0.3485],[0.3317,0.3988],[0.2979,0.4051],[0.2972,0.3954],[0.2753,0.3451],[0.0324,0.1243],[0.0948,0.1213],[0.1698,0.1822],[0.1566,0.193],[0.2494,0.2935],[0.1791,0.1469],[0.0967,0.0683],[0.0865,0.0473],[0.1827,0.1731],[0.1646,0.1796],[0.129,0.087],[0.1876,0.175],[0.1541,0.1793],[0.1645,0.2276],[0.072,0.1409],[0.0934,0.1095],[0.128,0.1399],[0.1983,0.2206],[0.2067,0.1475],[0.1677,0.1495],[0.1248,0.1164],[0.2257,0.2706],[0.098,0.0798],[0.0485,0.0118],[0.0089,-0.0026],[0.16,0.118],[0.1863,0.1159],[0.1797,0.1278],[0.2021,0.1794],[0.2188,0.2392],[0.3751,0.3241],[0.2257,0.2136],[0.1684,0.2511],[0.0609,0.1487],[0.2482,0.3752],[0.2637,0.3768],[0.2372,0.3525],[0.1915,0.276],[0.2703,0.4067],[0.2568,0.3915],[0.0272,0.1153],[0.0855,0.1382],[0.19,0.1966],[0.1825,0.2219],[0.1911,0.1994],[0.0936,0.0089],[0.1627,0.1343],[0.0934,0.062],[0.1339,0.0812],[0.1415,0.1421],[0.228,0.1783],[0.1798,0.1631],[0.1487,0.1419],[0.1408,0.2148],[0.1248,0.1482],[0.1202,0.1866],[0.1588,0.207],[0.1364,0.1505],[0.127,0.0861],[0.1947,0.1734],[0.1976,0.2268],[0.1849,0.1889],[0.138,0.1231],[-0.0537,-0.0566],[0.0599,0.0297],[0.0049,-0.0537],[0.0957,0.0547],[0.1261,0.1469],[0.117,0.1195],[0.2172,0.2376],[0.3476,0.2971],[0.3131,0.2524],[0.1786,0.2246],[0.0861,0.186],[0.1501,0.3164],[0.2243,0.3869],[0.1797,0.3252],[0.2362,0.3585],[0.2237,0.385],[0.2317,0.3849],[0.0773,0.1563],[0.0622,0.201],[0.1019,0.1787],[0.2188,0.404],[0.1025,0.1513],[0.1666,0.1661],[0.1295,0.1052],[0.1381,0.1057],[0.1172,0.0933],[0.1659,0.14],[0.1444,0.1008],[0.1581,0.1168],[0.2554,0.2497],[0.2258,0.2334],[0.2573,0.3064],[0.1699,0.2154],[0.0877,0.1442],[0.1321,0.1255],[0.1591,0.107],[0.1531,0.0916],[0.1771,0.1273],[0.1436,0.095],[0.2427,0.2608],[0.0992,0.0732],[0.0609,0.0246],[-0.0097,0.0154],[0.1285,0.1005],[0.1513,0.0932],[0.1404,0.126],[0.0891,0.0888],[0.1367,0.1614],[0.2137,0.1855],[0.1801,0.1374],[0.1946,0.249],[0.0845,0.1656],[0.1956,0.3643],[0.1817,0.3474],[0.1664,0.2916],[0.1498,0.3194],[0.0296,0.1573],[0.0047,0.0903],[0.0482,0.1706],[0.1071,0.1991],[-0.0212,0.1174],[0.0034,0.1217],[0.1698,0.2008],[0.1274,0.2049],[0.1923,0.243],[0.2586,0.2734],[0.2079,0.2159],[0.1691,0.1636],[0.1464,0.0688],[0.1767,0.1146],[0.097,0.0877],[0.1446,0.1096],[0.2156,0.1752],[0.2465,0.266],[0.155,0.2105],[0.0993,0.2061],[0.1085,0.1144],[0.1695,0.1252],[0.1392,0.0801],[0.1211,0.0935],[0.0924,0.128],[0.1558,0.162],[0.0923,0.0166],[-0.0469,-0.1126],[0.013,-0.0336],[0.0072,-0.0013],[0.0273,-0.052],[0.0878,0.0659],[0.1304,0.1011],[0.0637,0.0673],[0.1476,0.1739],[0.0592,0.136],[0.0317,0.1427],[0.072,0.1733],[0.1097,0.2824],[0.0988,0.2675],[0.0521,0.2204],[0.0082,0.2171],[0.0104,0.1643],[-0.0362,0.0391],[-0.0596,0.0545],[0.2672,0.3924],[0.1014,0.1938],[0.0044,0.1682],[-0.0219,0.0827],[0.0792,0.106],[0.1525,0.2321],[0.1484,0.2036],[0.1064,0.097],[0.0874,0.0812],[-0.0486,-0.0322],[0.1215,0.1065],[0.1189,0.0619],[0.1373,0.0987],[0.2062,0.1753],[0.0964,0.077],[0.1145,0.1326],[0.0533,0.0796],[0.0295,0.0754],[0.0198,-0.0067],[0.0397,-0.0324],[0.0041,-0.0851],[0.0435,-0.0349],[0.0489,0.0423],[0.0333,-0.0029],[-0.0804,-0.1172],[-0.1727,-0.2087],[-0.1585,-0.1754],[-0.0707,-0.1319],[0.0254,-0.001],[0.0134,0.0029],[-0.0173,-0.0414],[0.0583,0.0266],[0.1138,0.0594],[0.0539,0.0326],[0.0548,0.129],[-0.0373,0.0539],[0.0361,0.1402],[0.0777,0.187],[0.0241,0.17],[-0.0249,0.1422],[0.0171,0.1679],[0.0253,0.1505],[-0.0118,0.0843],[0.0032,0.0979],[0.2569,0.356],[-0.0709,-0.0136],[-0.0278,0.1231],[-0.0252,0.0868],[0.059,0.1296],[0.0133,0.06],[0.0709,0.1324],[0.0578,0.0988],[0.1074,0.143],[0.0752,0.1435],[0.0512,0.0932],[0.0927,0.0982],[0.0642,0.0401],[0.0585,0.0361],[0.0365,0.0448],[0.0912,0.142],[0.0106,0.0545],[-0.0543,-0.0527],[-0.0344,-0.0784],[0.0284,-0.0193],[0.0185,-0.0843],[0.0038,-0.0951],[-0.0756,-0.0954],[0.0456,0.0219],[-0.1714,-0.157],[-0.2094,-0.2133],[-0.1314,-0.1838],[0.0021,-0.0501],[0.0307,0.0102],[0.0239,0.0656],[0.0258,0.0282],[-0.0054,-0.0597],[0.1669,0.0721],[0.0906,0.0529],[0.0331,0.0696],[-0.1089,-0.0183],[0.1776,0.2502],[0.15,0.2187],[0.0049,0.1088],[-0.0452,0.0505],[-0.0412,0.1277],[0.0182,0.151],[-0.1021,0.0191],[-0.1675,-0.0244],[0.0503,0.1663],[-0.0429,0.0059],[-0.1573,-0.009],[-0.1221,-0.0364],[-0.0099,0.0263],[-0.0529,-0.0112],[-0.0184,0.0363],[0.128,0.1012],[0.5429,0.5874],[0.26,0.2802],[0.0501,0.0215],[-0.0564,-0.0457],[-0.0409,-0.0713],[-0.0241,-0.0712],[-0.0359,-0.0318],[-0.0396,0.0244],[-0.0067,-0.0545],[0.025,0.0279],[-0.0037,-0.0034],[-0.0087,-0.1184],[-0.0631,-0.1434],[0.0279,-0.0625],[0.0067,0.0079],[-0.0744,-0.0854],[-0.1479,-0.1694],[-0.3261,-0.3239],[-0.1149,-0.1993],[-0.081,-0.186],[0.0028,0.0026],[-0.0216,0.0288],[-0.0847,-0.0886],[-0.02,-0.0332],[0.0195,0.0067],[-0.0127,-0.0129],[0.055,0.0497],[-0.0633,-0.0225],[0.0134,0.0565],[0.0627,0.1327],[-0.0304,0.0538],[0.0228,0.047],[-0.0882,0.0229],[-0.0321,0.0596],[-0.0646,0.0102],[-0.0348,-0.0038],[-0.0694,0.0384],[-0.0637,0.0082],[-0.1535,-0.0336],[-0.2035,-0.0812],[-0.0842,-0.0062],[-0.0755,-0.0687],[-0.0114,-0.0029],[0.183,0.1949],[0.4469,0.3022],[0.4373,0.5051],[0.0796,0.0991],[-0.1099,-0.12],[-0.1504,-0.1763],[-0.0934,-0.1525],[-0.1179,-0.1089],[-0.0747,-0.0696],[-0.1655,-0.1312],[-0.1731,-0.1917],[-0.1869,-0.1931],[-0.1247,-0.1724],[-0.1182,-0.2215],[-0.1354,-0.1973],[-0.2372,-0.2605],[-0.125,-0.1389],[-0.2989,-0.3214],[-0.3184,-0.3531],[-0.3109,-0.3544],[-0.2064,-0.2522],[-0.1767,-0.1272],[-0.1615,-0.0338],[-0.1794,-0.1585],[-0.1816,-0.1337],[-0.0727,-0.0561],[-0.1184,-0.1108],[-0.1232,-0.0899],[-0.2554,-0.1933],[-0.0467,0.0414],[-0.0468,0.0158],[-0.0596,-0.0112],[-0.028,-0.0252],[-0.1172,-0.0953],[-0.1529,-0.1491],[-0.0257,-0.0888],[0.1028,0.0292],[-0.0178,0.0668],[-0.0661,0.0272],[-0.1887,-0.1589],[-0.2731,-0.1888],[-0.2552,-0.1552],[-0.1245,-0.0851],[-0.0893,-0.1096],[-0.0597,-0.0905],[-0.0876,-0.0998],[-0.0748,-0.0637],[-0.1592,-0.1535],[-0.2707,-0.2728],[-0.2082,-0.2299],[-0.1286,-0.2042],[-0.1641,-0.256],[-0.238,-0.2636],[-0.2578,-0.2153],[-0.3126,-0.2713],[-0.2576,-0.28],[-0.2159,-0.249],[-0.2168,-0.2383],[-0.2254,-0.2792],[-0.1919,-0.2247],[-0.274,-0.3124],[-0.2178,-0.2475],[-0.335,-0.3496],[-0.4277,-0.4396],[-0.3181,-0.3099],[-0.2843,-0.291],[-0.2312,-0.1822],[-0.2022,-0.0588],[-0.1606,-0.1082],[-0.1529,-0.0783],[-0.1126,-0.0564],[-0.1904,-0.1436],[-0.2301,-0.1685],[-0.2482,-0.1837],[-0.1093,0.005],[-0.0314,0.0437],[-0.004,0.014],[0.0093,-0.0363],[-0.006,-0.0679],[0.0591,-0.0101],[0.0565,-0.0074],[0.166,0.0506],[0.1438,0.0876],[0.1168,0.179],[-0.0165,0.0898],[-0.2165,-0.1567],[-0.2565,-0.1638],[-0.3256,-0.2488],[-0.1886,-0.1994],[-0.1525,-0.119],[-0.1023,-0.1287],[-0.2061,-0.2413],[-0.3456,-0.332],[-0.4586,-0.4214],[-0.2682,-0.2614],[-0.2981,-0.2755],[-0.2648,-0.3056],[-0.2252,-0.2863],[-0.267,-0.2691],[-0.3029,-0.2325],[-0.3052,-0.2873],[-0.2862,-0.3194],[-0.2517,-0.3323],[-0.2479,-0.3058],[-0.2719,-0.3103],[-0.272,-0.3028],[-0.307,-0.3408],[-0.2345,-0.2456],[-0.3252,-0.3252],[-0.4521,-0.454],[-0.3428,-0.3703],[-0.2062,-0.2312],[-0.1631,-0.1086],[-0.1737,-0.0289],[-0.1992,-0.1624],[-0.1875,-0.1464],[-0.1808,-0.1154],[-0.182,-0.1566],[-0.15,-0.1098],[-0.2161,-0.2298],[-0.0421,-0.012],[0.0266,0.055],[0.0398,0.0146],[0.1089,0.0157],[0.0777,-0.0676],[0.1133,0.0651],[0.0854,0.1288],[0.1308,0.0808],[0.1208,0.1105],[0.0484,0.1531],[0.0158,0.1233],[-0.2442,-0.1285],[-0.2375,-0.1202],[-0.2244,-0.1257],[-0.0895,-0.0685],[-0.213,-0.2052],[-0.1036,-0.1558],[-0.1932,-0.213],[-0.2124,-0.1968],[-0.238,-0.1845],[-0.2725,-0.2593],[-0.2661,-0.2498],[-0.3588,-0.3425],[-0.3196,-0.3453],[-0.3024,-0.2937],[-0.2414,-0.1916],[-0.2673,-0.2477],[-0.2618,-0.2359],[-0.2981,-0.2738],[-0.2179,-0.2408],[-0.2194,-0.2526],[-0.202,-0.2268],[-0.2846,-0.3358],[-0.2265,-0.2577],[-0.3412,-0.316],[-0.4965,-0.4223],[-0.3615,-0.3606],[-0.3164,-0.3085],[-0.2834,-0.2406],[-0.2571,-0.1364],[-0.2666,-0.1808],[-0.3091,-0.2841],[-0.1789,-0.1952],[-0.2324,-0.2147],[-0.2705,-0.239],[-0.3138,-0.3132],[0.0176,0.0185],[0.0278,0.0422],[-0.0154,-0.0521],[0.0062,-0.1182],[-0.0074,-0.0524],[-0.0205,0.003],[-0.0371,0.0541],[0.0133,0.0874],[0.0221,0.1015],[-0.1018,-0.0024],[-0.0981,0.0408],[-0.1445,-0.0156],[-0.271,-0.1283],[-0.2685,-0.1966],[-0.1739,-0.1737],[-0.1656,-0.1759],[-0.1278,-0.2045],[-0.1746,-0.2417],[-0.1824,-0.1915],[-0.2397,-0.2504],[-0.2066,-0.225],[-0.2722,-0.3158],[-0.3123,-0.3758],[-0.2822,-0.3035],[-0.3548,-0.3397],[-0.3686,-0.3597],[-0.3594,-0.3994],[-0.3472,-0.3087],[-0.3546,-0.3824],[-0.3445,-0.4174],[-0.3838,-0.392],[-0.3231,-0.3284],[-0.327,-0.4012],[-0.4049,-0.4382],[-0.4325,-0.4639],[-0.6218,-0.5933],[-0.4407,-0.4209],[-0.3737,-0.3875],[-0.29,-0.2422],[-0.2942,-0.199],[-0.2995,-0.244],[-0.2137,-0.265],[-0.1919,-0.2983],[-0.2586,-0.3229],[-0.2465,-0.2192],[-0.2184,-0.1774],[-0.0725,-0.1069],[0.018,-0.0164],[0.0371,0.0357],[0.1376,0.0841],[-0.012,-0.0295],[-0.0296,0.0441],[-0.1052,0.0717],[-0.0176,0.1093],[-0.0455,0.0707],[0.0177,0.1009],[-0.0652,0.0467],[-0.1818,-0.03],[-0.1757,-0.0279],[-0.2693,-0.2088],[-0.1951,-0.1949],[-0.2135,-0.2089],[-0.1227,-0.149],[-0.1763,-0.2143],[-0.2584,-0.2729],[-0.2719,-0.271],[-0.1933,-0.2227],[-0.247,-0.3242],[-0.327,-0.4144],[-0.3243,-0.3635],[-0.381,-0.3782],[-0.3538,-0.3757],[-0.4383,-0.4442],[-0.4355,-0.4536],[-0.4027,-0.4554],[-0.3728,-0.3917],[-0.3767,-0.398],[-0.392,-0.405],[-0.4633,-0.5008],[-0.4174,-0.4629],[-0.539,-0.55],[-0.507,-0.55],[-0.4843,-0.4966],[-0.3735,-0.3716],[-0.2912,-0.2582],[-0.2684,-0.2104],[-0.265,-0.2794],[-0.2616,-0.3163],[-0.2136,-0.2656],[-0.2892,-0.3332],[-0.2429,-0.2127],[-0.3408,-0.286],[-0.0455,-0.0336],[0.0371,-0.0047],[0.0423,0.0648],[-0.0332,-0.0005],[-0.0992,-0.067],[-0.1043,-0.0312],[-0.1436,0.0128],[-0.1191,0.056],[-0.001,0.0778],[0.1263,0.2169],[0.0616,0.1793],[-0.2337,-0.1143],[-0.2188,-0.0988],[-0.2362,-0.19],[-0.1247,-0.1114],[-0.183,-0.1601],[-0.1538,-0.1847],[-0.2068,-0.2242],[-0.223,-0.2201],[-0.3052,-0.3394],[-0.2768,-0.3568],[-0.2129,-0.2773],[-0.195,-0.2221],[-0.3268,-0.3348],[-0.3697,-0.4027],[-0.3963,-0.4002],[-0.3746,-0.4605],[-0.3291,-0.3865],[-0.3235,-0.3618],[-0.3641,-0.3996],[-0.3786,-0.4095],[-0.3398,-0.3747],[-0.3927,-0.4078],[-0.4459,-0.4477],[-0.4471,-0.5239],[-0.5461,-0.5756],[-0.279,-0.3634],[-0.2803,-0.3163],[-0.2188,-0.1975],[-0.1883,-0.1752],[-0.2904,-0.3143],[-0.3029,-0.3426],[-0.28,-0.2956],[-0.2694,-0.2698],[-0.2286,-0.2124],[-0.235,-0.178],[-0.0335,-0.0712],[0.0293,0.0341],[-0.0702,-0.0374],[-0.0748,-0.0867],[-0.1625,-0.1327],[-0.1397,-0.0621],[-0.3051,-0.1489],[-0.2194,-0.0835],[-0.1283,-0.0482],[0.1211,0.1856],[0.1777,0.2671],[-0.0788,0.0226],[-0.1504,-0.0633],[-0.1971,-0.1806],[-0.1353,-0.1905],[-0.1573,-0.1566],[-0.0946,-0.1547],[-0.1487,-0.2039],[-0.1819,-0.2036],[-0.2655,-0.3174],[-0.1813,-0.228],[-0.2138,-0.2725],[-0.2234,-0.2689],[-0.2098,-0.1923],[-0.2624,-0.2877],[-0.3533,-0.3587],[-0.3618,-0.4313],[-0.3174,-0.3922],[-0.3457,-0.3641],[-0.2704,-0.3371],[-0.3026,-0.351],[-0.3475,-0.3542],[-0.3804,-0.4079],[-0.4058,-0.419],[-0.4632,-0.5082],[-0.507,-0.5504],[-0.3396,-0.3507],[-0.1279,-0.1752],[-0.0763,-0.0609],[-0.1117,-0.0249],[-0.2498,-0.2774],[-0.2768,-0.3323],[-0.2688,-0.3372],[-0.2628,-0.3548],[-0.156,-0.1907],[-0.2224,-0.2385],[-0.0596,-0.0713],[-0.0426,-0.0034],[-0.0597,-0.0465],[-0.0289,-0.0545],[-0.1516,-0.1781],[-0.2425,-0.2285],[-0.3059,-0.1879],[-0.2062,-0.0918],[-0.2645,-0.1871],[0.0514,0.0915],[-0.0054,0.1092],[-0.1024,-0.0239],[-0.1738,-0.0834],[-0.183,-0.1988],[-0.1043,-0.1544],[-0.2352,-0.2392],[-0.1149,-0.146],[-0.1071,-0.1298],[-0.134,-0.147],[-0.1922,-0.2054],[-0.1286,-0.205],[-0.1624,-0.2654],[-0.3217,-0.3703],[-0.27,-0.3247],[-0.2692,-0.2912],[-0.2988,-0.2852],[-0.3243,-0.4181],[-0.2447,-0.3402],[-0.2959,-0.3161],[-0.1876,-0.2318],[-0.2651,-0.2922],[-0.2981,-0.3085],[-0.2877,-0.3306],[-0.288,-0.3297],[-0.3603,-0.4482],[-0.4295,-0.5055],[-0.2676,-0.2921],[-0.181,-0.2242],[-0.1505,-0.171],[-0.1156,-0.066],[-0.1622,-0.2353],[-0.3153,-0.3463],[-0.2108,-0.291],[-0.259,-0.3269],[-0.2469,-0.2414],[-0.2135,-0.2488],[-0.0634,0.0098],[-0.0706,0.0392],[-0.0843,-0.0629],[-0.1487,-0.1726],[-0.2206,-0.2155],[-0.2605,-0.2429],[-0.3012,-0.1831],[-0.2949,-0.1938],[-0.4207,-0.3067],[0.0414,0.1833],[-0.042,0.0695],[-0.1236,0.03],[-0.1743,-0.1234],[-0.1666,-0.1646],[-0.0845,-0.107],[-0.1583,-0.1466],[-0.1796,-0.1794],[-0.1497,-0.1528],[-0.2525,-0.2735],[-0.1656,-0.2269],[-0.1793,-0.2782],[-0.1506,-0.253],[-0.1646,-0.2287],[-0.3343,-0.3403],[-0.4092,-0.3762],[-0.3561,-0.4704],[-0.2414,-0.3303],[-0.2771,-0.297],[-0.2537,-0.3059],[-0.2935,-0.3382],[-0.3211,-0.3257],[-0.2671,-0.3158],[-0.3613,-0.4211],[-0.3419,-0.4769],[-0.4878,-0.5574],[-0.2938,-0.3393],[-0.2006,-0.305],[-0.1282,-0.1457],[-0.1301,-0.1416],[-0.2284,-0.3258],[-0.2475,-0.2984],[-0.271,-0.3717],[-0.2768,-0.3479],[-0.2538,-0.2251],[-0.2967,-0.3233],[-0.121,-0.1319],[-0.0628,-0.0195],[-0.1014,-0.0483],[-0.0947,-0.0813],[-0.2228,-0.1716],[-0.2764,-0.2084],[-0.3316,-0.224],[-0.2846,-0.1923],[0.0953,0.1966],[-0.082,0.0003],[-0.0719,0.0606],[-0.0846,0.0031],[-0.1043,-0.0734],[-0.151,-0.1298],[-0.1059,-0.0549],[-0.1051,-0.0817],[-0.0478,-0.0895],[-0.0434,-0.0449],[-0.0775,-0.0692],[-0.1436,-0.1366],[-0.2129,-0.2861],[-0.2302,-0.2953],[-0.2819,-0.2951],[-0.2726,-0.2756],[-0.3374,-0.3547],[-0.3192,-0.3624],[-0.3345,-0.3415],[-0.2327,-0.2564],[-0.2534,-0.3167],[-0.3159,-0.3423],[-0.4023,-0.4511],[-0.2852,-0.3642],[-0.4028,-0.4738],[-0.3756,-0.4693],[-0.2455,-0.3176],[-0.0934,-0.1751],[-0.0755,-0.1617],[-0.0459,-0.0431],[-0.1435,-0.2036],[-0.296,-0.327],[-0.2419,-0.2961],[-0.3536,-0.3704],[-0.3552,-0.3048],[-0.3921,-0.4225],[-0.0865,-0.112],[-0.0456,-0.0265],[-0.1018,-0.0328],[-0.1972,-0.123],[-0.2859,-0.1723],[-0.2996,-0.1879],[-0.3492,-0.2118],[-0.2833,-0.1411],[0.1638,0.3301],[-0.118,-0.0511],[-0.1895,-0.0748],[-0.1564,-0.1088],[-0.0941,-0.1203],[-0.1511,-0.1008],[-0.0931,-0.0677],[-0.0221,-0.0506],[0.011,0.0147],[-0.1061,-0.1125],[-0.1074,-0.1654],[-0.1656,-0.1448],[-0.2295,-0.2375],[-0.263,-0.2764],[-0.2924,-0.331],[-0.3087,-0.2986],[-0.2882,-0.3015],[-0.1882,-0.1721],[-0.2038,-0.198],[-0.1615,-0.1906],[-0.2515,-0.2712],[-0.2441,-0.2414],[-0.2081,-0.2689],[-0.2936,-0.3504],[-0.3228,-0.38],[-0.3761,-0.446],[-0.0938,-0.2136],[-0.0988,-0.2016],[-0.0716,-0.1389],[-0.0402,-0.0748],[-0.1424,-0.2188],[-0.1506,-0.2425],[-0.1912,-0.2871],[-0.3056,-0.3049],[-0.3217,-0.2593],[-0.2661,-0.2556],[-0.111,-0.1362],[-0.0635,-0.0291],[-0.1515,-0.0596],[-0.1225,-0.0132],[-0.2599,-0.1013],[-0.2848,-0.1309],[-0.3781,-0.2423],[-0.2402,-0.1262],[-0.068,0.1248],[-0.0067,0.1],[-0.1138,0.0516],[-0.1501,-0.0931],[-0.066,-0.0959],[-0.0438,-0.0417],[-0.049,-0.0402],[-0.0727,-0.0477],[-0.0202,0.0014],[-0.0713,-0.1173],[-0.005,-0.0372],[-0.1129,-0.1777],[-0.2182,-0.2936],[-0.2201,-0.2196],[-0.2771,-0.2772],[-0.263,-0.2571],[-0.3394,-0.2759],[-0.2914,-0.2992],[-0.2166,-0.262],[-0.1648,-0.2003],[-0.2506,-0.2553],[-0.2917,-0.2788],[-0.3325,-0.38],[-0.2765,-0.3497],[-0.3688,-0.4135],[-0.2999,-0.3851],[-0.1982,-0.2948],[-0.0179,-0.1387],[0.0292,-0.1008],[0.0316,0.0061],[-0.0737,-0.1505],[-0.0964,-0.2356],[-0.1467,-0.3011],[-0.294,-0.3192],[-0.197,-0.1467],[-0.3893,-0.3692],[-0.1238,-0.0762],[-0.127,-0.0799],[-0.0568,-0.0688],[-0.0148,-0.0127],[-0.1807,-0.0928],[-0.2736,-0.1518],[-0.2708,-0.1524],[-0.2892,-0.1924],[-0.0397,0.0951],[-0.0481,0.098],[-0.19,-0.1249],[-0.1015,-0.1266],[-0.0641,-0.0882],[-0.0706,-0.0615],[-0.0485,-0.0219],[-0.0101,0.0078],[-0.0081,-0.0034],[-0.0208,-0.0594],[-0.0755,-0.1046],[-0.2402,-0.296],[-0.3104,-0.3523],[-0.336,-0.3367],[-0.3518,-0.3092],[-0.3815,-0.337],[-0.2818,-0.2815],[-0.1747,-0.2028],[-0.0982,-0.1439],[-0.2189,-0.2236],[-0.2788,-0.2336],[-0.3357,-0.3322],[-0.2947,-0.3523],[-0.2535,-0.3686],[-0.2437,-0.349],[-0.0691,-0.1685],[-0.0215,-0.1658],[0.0063,-0.1652],[0.0367,-0.0164],[-0.0187,-0.1093],[-0.1143,-0.236],[-0.099,-0.2324],[-0.3042,-0.2674],[-0.2821,-0.212],[-0.3334,-0.2755],[-0.1575,-0.0534],[-0.0649,0.0124],[-0.0442,-0.0408],[-0.0351,-0.0503],[-0.1482,-0.102],[-0.1024,-0.0931],[-0.2194,-0.1675],[-0.1037,0.0516],[-0.0083,0.155],[-0.1193,-0.0361],[-0.1786,-0.1668],[-0.1075,-0.0282],[-0.0764,0.0288],[-0.06,-0.0434],[0.0257,0.0491],[-0.1106,-0.1043],[0.002,0.0134],[-0.035,-0.0923],[-0.0662,-0.1904],[-0.1406,-0.1769],[-0.2962,-0.3059],[-0.342,-0.2925],[-0.3212,-0.299],[-0.2027,-0.2533],[-0.2301,-0.2273],[-0.1489,-0.1755],[-0.2016,-0.2278],[-0.2162,-0.208],[-0.2466,-0.2958],[-0.2284,-0.3427],[-0.075,-0.199],[0.1316,0.0587],[0.137,0.0442],[0.0398,-0.135],[0.1391,0.008],[0.1322,0.0246],[-0.0665,-0.157],[-0.058,-0.0922],[-0.129,-0.1652],[-0.2135,-0.1852],[-0.1249,-0.042],[-0.1382,-0.0861],[0.011,0.0886],[0.102,0.1642],[0.1168,0.1505],[0.0992,0.134],[-0.0875,-0.0767],[-0.0729,-0.0598],[-0.127,-0.0809],[-0.1139,0.0445],[-0.0703,0.0542],[-0.0376,0.0262],[-0.1576,-0.0451],[0.009,0.1036],[0.0811,0.1248],[0.1061,0.1234],[0.0662,0.1298],[0.0387,0.0599],[0.1174,0.0732],[-0.0741,-0.0943],[-0.1702,-0.217],[-0.1794,-0.2037],[-0.2034,-0.1594],[-0.2009,-0.189],[-0.1541,-0.1696],[-0.1769,-0.1334],[-0.0563,-0.0498],[-0.0947,-0.0907],[-0.1763,-0.1954],[-0.274,-0.3241],[-0.1869,-0.2176],[-0.0431,-0.0898],[0.1639,0.1271],[0.3232,0.2079],[0.2078,0.0397],[0.2387,0.0672],[0.231,0.1742],[0.125,0.0792],[-0.0968,-0.0757],[-0.0459,-0.0498],[-0.1386,-0.143],[-0.1452,-0.0798],[-0.0973,-0.0557],[0.2579,0.3091],[0.1723,0.1967],[0.0567,0.0956],[0.0298,0.0641],[-0.0711,-0.044],[-0.0609,-0.0395],[-0.2068,-0.0648],[-0.0456,0.0609],[0.096,0.1472],[-0.0347,0.0944],[0.0498,0.1122],[0.1519,0.1443],[0.1594,0.1892],[0.0084,0.0818],[0.09,0.0971],[0.0633,0.0707],[-0.1174,-0.0802],[-0.1245,-0.0939],[-0.1826,-0.166],[-0.2456,-0.2005],[-0.22,-0.2435],[-0.0806,-0.0717],[-0.0506,-0.0388],[0.0108,-0.0184],[-0.0759,-0.0783],[-0.1144,-0.1383],[-0.1991,-0.1959],[-0.2991,-0.3079],[-0.2727,-0.3354],[-0.2447,-0.301],[0.1526,0.0568],[0.2384,0.0727],[0.3141,0.1375],[0.2455,0.1655],[0.1038,-0.022],[-0.0011,-0.0275],[-0.0222,-0.101],[-0.0939,-0.2066],[-0.0036,-0.0162],[-0.0243,0.0048],[0.1119,0.1155],[0.1161,0.1519],[0.101,0.1007],[0.1804,0.1742],[0.0586,0.1003],[-0.0577,-0.0131],[-0.1081,0.0302],[0.0894,0.1529],[0.1569,0.2638],[0.2136,0.2395],[0.2982,0.2997],[0.2178,0.1977],[0.2228,0.2763],[0.2846,0.3725],[0.1046,0.1448],[-0.0539,-0.0876],[-0.0772,-0.0739],[-0.1172,-0.0851],[-0.0546,-0.0398],[-0.1187,-0.0893],[-0.1188,-0.1215],[-0.0865,-0.0939],[0.0522,0.0581],[-0.0039,-0.0411],[-0.1493,-0.1731],[-0.272,-0.2809],[-0.1501,-0.1858],[-0.1948,-0.2268],[-0.0843,-0.1755],[0.0647,-0.0045],[0.2831,0.1595],[0.3388,0.1624],[0.3093,0.1695],[0.2262,0.0711],[0.1411,0.1197],[0.1026,0.0361],[-0.0072,-0.0707],[0.0929,0.0726],[-0.127,-0.1047],[0.1376,0.1928],[0.2177,0.2838],[0.317,0.3189],[0.3339,0.3075],[0.1089,0.1529],[0.129,0.2113],[0.1421,0.2978],[0.2466,0.3044],[0.4078,0.4094],[0.4139,0.3974],[0.3146,0.3249],[0.2041,0.1811],[0.207,0.1839],[0.1618,0.0826],[0.0346,-0.0305],[-0.0904,-0.1156],[-0.146,-0.1],[-0.0745,-0.0839],[0.0492,0.0034],[-0.0243,-0.0355],[0.0035,0.0052],[-0.0437,-0.0952],[-0.0829,-0.117],[-0.2012,-0.2594],[-0.1713,-0.2174],[-0.1461,-0.2117],[-0.1239,-0.1934],[0.1636,0.0392],[0.2703,0.1353],[0.3852,0.2421],[0.3814,0.2838],[0.231,0.1787],[0.2021,0.1272],[0.164,0.1032],[0.0424,0.0807],[0.0663,0.134],[-0.0287,0.0216],[0.2041,0.2843],[0.3781,0.4398],[0.3196,0.3997],[0.2427,0.2702],[0.0926,0.0652],[0.2542,0.3149],[0.3834,0.4433],[0.4482,0.4669],[0.5483,0.5657],[0.4434,0.4243],[0.3849,0.3563],[0.2237,0.2095],[0.1453,0.0983],[0.1433,0.0707],[0.0211,-0.0046],[-0.0426,-0.0015],[-0.0133,-0.0043],[0.1,0.0139],[0.0839,0.0696],[0.1482,0.1107],[0.0778,0.0555],[0.0246,0.0125],[-0.0562,-0.1123],[-0.0597,-0.1102],[-0.0997,-0.148],[-0.0875,-0.1502],[0.2027,0.1015],[0.4615,0.3487],[0.5518,0.4557],[0.5372,0.4763],[0.2884,0.2395],[0.1326,0.1073],[0.139,0.0975],[0.0256,0.003],[0.0969,0.1172],[0.0839,0.131],[0.3855,0.4471],[0.3956,0.4972],[0.2523,0.3765],[0.169,0.2349],[0.1551,0.2314],[0.4861,0.5688],[0.6906,0.6685],[0.6688,0.6809],[0.6155,0.5844],[0.5164,0.508],[0.3822,0.3984],[0.1904,0.1859],[0.1495,0.0908],[0.1277,0.0815],[0.1521,0.1816],[0.1094,0.1364],[0.216,0.1656],[0.232,0.2655],[0.3502,0.3721],[0.2727,0.2794],[0.2245,0.2113],[0.1226,0.0966],[0.219,0.1701],[0.0888,0.0269],[-0.0223,-0.0412],[0.2866,0.2453],[0.3483,0.2694],[0.3518,0.2981],[0.3948,0.395],[0.2867,0.2482],[0.0733,0.0748],[0.2848,0.2307],[0.1641,0.166],[0.1347,0.1843],[0.1525,0.1894],[0.3204,0.4378],[0.244,0.4],[0.0912,0.2403],[0.5795,0.59],[0.6224,0.5606],[0.6212,0.5884],[0.6039,0.561],[0.6697,0.6007],[0.5385,0.4709],[0.3245,0.3032],[0.285,0.2752],[0.0958,0.0403],[-0.0236,0.0306],[0.0293,0.0604],[0.1954,0.1742],[0.1966,0.2122],[0.1477,0.0956],[0.0764,0.0514],[0.1147,0.0664],[-0.0164,0.0084],[-0.0322,-0.0884],[-0.0163,-0.1286],[-0.0844,-0.1067],[0.2271,0.1917],[0.3301,0.2289],[0.4398,0.4305],[0.3571,0.3838],[0.2132,0.1559],[0.2227,0.2216],[0.2285,0.1873],[0.1263,0.1638],[0.201,0.371],[0.1352,0.2318],[0.0482,0.1965],[-0.0845,0.1085],[0.6234,0.7036],[0.5933,0.5155],[0.7558,0.7225],[0.7982,0.7793],[0.7078,0.6567],[0.4703,0.4601],[0.3683,0.3186],[0.2484,0.1868],[0.2782,0.3204],[0.2042,0.2548],[0.1543,0.1117],[0.1595,0.1535],[0.2845,0.2381],[0.2368,0.1672],[0.1151,0.0783],[-0.125,-0.1016],[0.066,0.0538],[0.0668,-0.0138],[0.1018,0.0439],[0.1614,0.0955],[0.4031,0.2949],[0.4924,0.4801],[0.4965,0.4702],[0.412,0.3498],[0.3484,0.3883],[0.2448,0.2835],[0.091,0.1888],[0.1059,0.2174],[-0.2074,-0.1334],[0.1068,0.3107],[0.5234,0.4527],[0.5387,0.4788],[0.6275,0.6156],[0.521,0.5599],[0.3472,0.3618],[0.3328,0.3004],[0.2733,0.321],[0.3439,0.336],[0.4474,0.4329],[0.3659,0.405],[0.3625,0.3469],[0.3371,0.2389],[0.3048,0.2961],[0.146,0.1554],[0.1161,0.0882],[0.16,0.0728],[0.1132,0.0636],[0.4472,0.3458],[0.4923,0.3923],[0.6515,0.6313],[0.6883,0.6878],[0.521,0.4918],[0.3443,0.3588],[0.3414,0.3632],[0.2661,0.3453],[0.0348,0.1292],[0.5156,0.4876],[0.4923,0.4161],[0.3262,0.2856],[0.4269,0.4835],[0.344,0.3951],[0.3988,0.4416],[0.3795,0.4421],[0.368,0.3552],[0.4097,0.403],[0.483,0.4839],[0.4272,0.4264],[0.3144,0.3136],[0.1971,0.1473],[0.2121,0.1805],[0.1461,0.1335],[0.2053,0.139],[0.3399,0.2996],[0.6107,0.546],[0.6858,0.6452],[0.6547,0.6534],[0.4566,0.4611],[0.2756,0.3404],[0.4781,0.4682],[0.0457,0.1846],[-0.0306,0.0066],[-0.3881,-0.3858],[0.2531,0.2853],[0.4931,0.6037],[0.4824,0.4989],[0.4403,0.4923],[0.515,0.4969],[0.5596,0.5747],[0.45,0.4963],[0.3713,0.4262],[0.222,0.1899],[0.292,0.2841],[0.2206,0.196],[0.1932,0.133],[0.3789,0.364],[0.3601,0.2516],[0.3242,0.2729],[0.3567,0.3536],[0.2782,0.3513],[-0.2697,-0.1886],[0.1223,0.2289],[0.3511,0.0069],[0.1132,0.0668],[0.067,0.0907],[0.1691,0.1132],[0.1394,0.1226],[0.041,0.1013],[0.138,0.1519],[0.0404,0.0308],[0.015,-0.0381],[0.0132,-0.0555],[-0.041,0.11],[0.062,0.0724],[-0.1683,-0.1586],[0.5042,0.3371],[0.0579,0.2078],[0.192,0.1409],[0.2607,-0.0136],[0.1336,0.0656],[-0.3774,-0.3924],[-0.7693,-0.7989],[0.0921,0.1286],[-0.2156,-0.0842],[0.0316,-0.0643]]}</script>
+<script>
+const D = JSON.parse(document.getElementById('data').textContent);
+const N = D.pts.length, T = D.runs.length;
+document.getElementById('hdrInfo').textContent = `${N} dies · ${T} scans (run ${D.runs[0]} – ${D.runs[T-1]}) · ${D.times[0]} → ${D.times[T-1]}`;
+
+// ---- geometry
+const xs=D.pts.map(p=>p[0]), ys=D.pts.map(p=>p[1]);
+const xmin=Math.min(...xs), xmax=Math.max(...xs), ymin=Math.min(...ys), ymax=Math.max(...ys);
+const ux=[...new Set(xs)].sort((a,b)=>a-b);
+let pitch=Infinity; for(let i=1;i<ux.length;i++) pitch=Math.min(pitch,ux[i]-ux[i-1]);
+
+// ---- raw arrays (Float32, NaN for missing)
+const RX=new Float32Array(N*T), RY=new Float32Array(N*T);
+for(let i=0;i<N;i++)for(let t=0;t<T;t++){const a=D.dx[i][t],b=D.dy[i][t];RX[i*T+t]=a==null?NaN:a;RY[i*T+t]=b==null?NaN:b;}
+const MX=new Float32Array(N), MY=new Float32Array(N);
+for(let i=0;i<N;i++){let sx=0,sy=0,n=0;for(let t=0;t<T;t++){const a=RX[i*T+t],b=RY[i*T+t];if(!isNaN(a)&&!isNaN(b)){sx+=a;sy+=b;n++}}MX[i]=n?sx/n:NaN;MY[i]=n?sy/n:NaN;}
+
+function vec(mode,i,t){
+  const a=RX[i*T+t], b=RY[i*T+t];
+  if(mode==='abs') return [a,b];
+  if(mode==='ref'){ let r=0; while(r<T&&isNaN(RX[i*T+r]))r++; return [a-RX[i*T+r], b-RY[i*T+r]]; }
+  if(mode==='prev'){ if(t===0) return [0,0]; return [a-RX[i*T+t-1], b-RY[i*T+t-1]]; }
+  return [a-MX[i], b-MY[i]];
+}
+function pct(arr,p){const s=arr.filter(v=>isFinite(v)).sort((a,b)=>a-b);return s[Math.min(s.length-1,Math.floor(p*s.length))]||1;}
+
+// per-mode cached stats
+const cache={};
+function modeData(mode){
+  if(cache[mode]) return cache[mode];
+  const VX=new Float32Array(N*T), VY=new Float32Array(N*T), mags=[], ax=[], ay=[];
+  for(let i=0;i<N;i++)for(let t=0;t<T;t++){const [a,b]=vec(mode,i,t);VX[i*T+t]=a;VY[i*T+t]=b;const m=Math.hypot(a,b);if(isFinite(m)){mags.push(m);ax.push(Math.abs(a));ay.push(Math.abs(b));}}
+  const series={mean:[],sx:[],sy:[],max:[],mx:[],my:[],imax:[]};
+  for(let t=0;t<T;t++){let s=0,n=0,mx=0,im=-1,sxa=0,sya=0,sxx=0,syy=0;
+    for(let i=0;i<N;i++){const a=VX[i*T+t],b=VY[i*T+t];if(isNaN(a)||isNaN(b))continue;const m=Math.hypot(a,b);s+=m;n++;if(m>mx){mx=m;im=i;}sxa+=a;sya+=b;sxx+=a*a;syy+=b*b;}
+    const ma=sxa/n, mb=sya/n;
+    series.mean.push(s/n);series.max.push(mx);series.imax.push(im);series.mx.push(ma);series.my.push(mb);
+    series.sx.push(Math.sqrt(Math.max(0,sxx/n-ma*ma)));series.sy.push(Math.sqrt(Math.max(0,syy/n-mb*mb)));}
+  return cache[mode]={VX,VY,p95:pct(mags,.95),p99:pct(mags,.99),p99x:pct(ax,.99),p99y:pct(ay,.99),series};
+}
+
+// ---- colour maps
+function turbo(x){x=Math.max(0,Math.min(1,x));
+  const r=34.61+x*(1172.33-x*(10793.56-x*(33300.12-x*(38394.49-x*14825.05))));
+  const g=23.31+x*(557.33+x*(1225.33-x*(3574.96-x*(1073.77+x*707.56))));
+  const b=27.2+x*(3211.1-x*(15327.97-x*(27814-x*(22569.18-x*6838.66))));
+  return `rgb(${Math.max(0,Math.min(255,r))|0},${Math.max(0,Math.min(255,g))|0},${Math.max(0,Math.min(255,b))|0})`;}
+function diverg(v){ // -1..1 blue-white-red
+  v=Math.max(-1,Math.min(1,v)); const t=Math.abs(v);
+  const c=v<0?[33,102,172]:[178,24,43]; const w=[235,235,235];
+  return `rgb(${(w[0]+(c[0]-w[0])*t)|0},${(w[1]+(c[1]-w[1])*t)|0},${(w[2]+(c[2]-w[2])*t)|0})`;}
+function hsl(a){return `hsl(${((a*180/Math.PI)+360)%360},80%,45%)`;}
+
+// ---- state & UI
+const $=id=>document.getElementById(id);
+const st={view:'2d',mesh:false,t:0,mode:'ref',cmode:'mag',scale:1.1,cmax:0.7,playing:false,trail:false,trailN:10,speed:6,thr:0,thrBelow:'dim',thrStretch:true,udAxis:'y',udPos:'#e0301e',udNeg:'#1f5fd6',udNeu:'#9aa3b2',udDead:0,udShade:true};
+$('slider').max=T-1;
+
+const map=$('map'); let mctx=map.getContext('2d');
+let L={}; // layout
+function resize(){
+  if(typeof curTab!=='undefined'&&curTab!=='eng') return; // engineering canvases are hidden
+  const w=map.parentElement.clientWidth-24;
+  const dpr=window.devicePixelRatio||1;
+  const big=document.body.classList.contains('big');
+  const h=big?Math.max(window.innerHeight-120,Math.min(w*0.62,1100))  /* large mode may exceed a short screen: scroll */:Math.max(480,Math.min(w,window.innerHeight-160));
+  map.style.height=h+'px'; map.width=w*dpr; map.height=h*dpr; mctx.setTransform(dpr,0,0,dpr,0,0);
+  const ts=$('ts'); const tw=ts.parentElement.clientWidth-24; ts.width=tw*dpr; ts.height=170*dpr; ts.style.height='170px'; ts.getContext('2d').setTransform(dpr,0,0,dpr,0,0);
+  const cbW=70, pad=pitch;
+  const plotW=w-cbW-20, plotH=h-20;
+  const s=Math.min(plotW/(xmax-xmin+2*pad), plotH/(ymax-ymin+2*pad));
+  L={w,h,s,ox:10+(plotW-(xmax-xmin+2*pad)*s)/2, oy:10+(plotH-(ymax-ymin+2*pad)*s)/2, pad, cbX:w-cbW+8, tw};
+  draw();
+}
+// 2D view transform (zoom/pan) and 3D camera
+const V={z:1,px:0,py:0, yaw:-0.55,pitch:0.95,z3:1,p3x:0,p3y:0,h3:1};
+const sx=x=>(L.ox+(x-xmin+L.pad)*L.s)*V.z+V.px, sy=y=>(L.oy+(ymax-y+L.pad)*L.s)*V.z+V.py;
+// grid indices for 3D surface
+const GX=xs.map(x=>Math.round((x-xmin)/pitch)), GY=ys.map(y=>Math.round((y-ymin)/pitch));
+const NGX=Math.max(...GX)+1, NGY=Math.max(...GY)+1;
+const G=new Int32Array(NGX*NGY).fill(-1); for(let i=0;i<N;i++) G[GY[i]*NGX+GX[i]]=i;
+
+// ---- focus threshold
+// basis value compared against st.thr: |v| for mag/dir colour, |dx| for X, |dy| for Y
+function eC(){return st.cmode==='ud'?st.udAxis:st.cmode;} // 'ud' acts as signed X or Y for height, range, threshold
+function thrVal(a,b){const c=eC();return c==='x'?Math.abs(a):c==='y'?Math.abs(b):Math.hypot(a,b);}
+function passes(a,b){return !(st.thr>0) || thrVal(a,b)>=st.thr;}
+function thrActive(){return st.thr>0;}
+// colour-scale lower bound (0 unless stretching from threshold); clamp so range never collapses
+function stretchOn(){return thrActive()&&st.thrStretch;}
+function cLo(vmax){return stretchOn()?st.thr:0;}
+// upper bound: if threshold >= colour max, extend so the range never collapses
+function cHi(vmax){return stretchOn()&&st.thr>=vmax*0.95?st.thr*1.5:vmax;}
+// normalise v to 0..1 (mag) or -1..1 (signed), honouring stretch
+const C0=0.15; // when stretching, the threshold maps to 15% of the colormap (avoids near-black / near-white at the bottom)
+function nrm(v,vmax){const lo=cLo(vmax), hi=cHi(vmax), s=Math.sign(v)||1, n=Math.max(0,Math.abs(v)-lo)/(hi-lo);
+  return s*(stretchOn()?C0+(1-C0)*n:n);} // in-focus 3D quads may average below thr -> clamp to bottom colour
+const DIM='rgba(150,158,172,.35)';
+function colourFor(md,a,b){
+  if(!passes(a,b)) return DIM;
+  if(st.cmode==='mag') return turbo(nrm(Math.hypot(a,b),md.p99*st.cmax));
+  if(st.cmode==='dir') return hsl(Math.atan2(b,a));
+  if(st.cmode==='ud') return st.udAxis==='x'?udColour(a,md.p99x*st.cmax):udColour(b,md.p99y*st.cmax);
+  if(st.cmode==='x') return diverg(nrm(a,md.p99x*st.cmax));
+  return diverg(nrm(b,md.p99y*st.cmax));
+}
+// two-colour mode: sign picks the colour; optional shading mixes toward white for small values
+function hex2rgb(h){const n=parseInt(h.slice(1),16);return [(n>>16)&255,(n>>8)&255,n&255];}
+function udColour(v,vmax){
+  if(!isFinite(v)) return st.udNeu;
+  if(Math.abs(v)<=st.udDead) return st.udNeu;
+  const c=hex2rgb(v>0?st.udPos:st.udNeg); if(!st.udShade) return `rgb(${c[0]},${c[1]},${c[2]})`;
+  const f=0.3+0.7*Math.min(1,Math.abs(nrm(v,vmax))); // 30% colour at 0, full colour at the range max
+  return `rgb(${(255+(c[0]-255)*f)|0},${(255+(c[1]-255)*f)|0},${(255+(c[2]-255)*f)|0})`;}
+function arrow(ctx,x0,y0,x1,y1,col,lw){
+  const dx=x1-x0, dy=y1-y0, len=Math.hypot(dx,dy); if(len<0.3) return;
+  const hl=Math.min(len*0.4, 4+lw*2), ang=Math.atan2(dy,dx);
+  ctx.strokeStyle=col; ctx.fillStyle=col; ctx.lineWidth=lw;
+  ctx.beginPath(); ctx.moveTo(x0,y0); ctx.lineTo(x1-Math.cos(ang)*hl*0.6,y1-Math.sin(ang)*hl*0.6); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(x1,y1);
+  ctx.lineTo(x1-hl*Math.cos(ang-0.42),y1-hl*Math.sin(ang-0.42));
+  ctx.lineTo(x1-hl*Math.cos(ang+0.42),y1-hl*Math.sin(ang+0.42)); ctx.closePath(); ctx.fill();
+}
+
+function draw(){
+  const md=modeData(st.mode);
+  mctx.clearRect(0,0,L.w,L.h);
+  if(st.view==='3d') draw3D(md); else draw2D(md);
+  drawColourbar(md);
+  drawTS(); updateStats(md);
+}
+
+// ---------- 3D surface / mesh ----------
+function heightOf(md,i,t){const a=md.VX[i*T+t], b=md.VY[i*T+t];
+  const c=eC(); return c==='x'?a:c==='y'?b:Math.hypot(a,b);}
+function vmaxOf(md){const c=eC(); return (c==='x'?md.p99x:c==='y'?md.p99y:md.p99)*st.cmax;}
+function valColour(v,vmax){if(st.cmode==='ud') return udColour(v,vmax); return st.cmode==='x'||st.cmode==='y'?diverg(nrm(v,vmax)):turbo(nrm(v,vmax));}
+function draw3D(md){
+  const ctx=mctx, t=st.t, vmax=vmaxOf(md);
+  const cx=(xmin+xmax)/2, cy=(ymin+ymax)/2, R=Math.max(xmax-xmin,ymax-ymin)/2+pitch*0.8;
+  const W=L.cbX-20, Cx=W/2+V.p3x, Cy=L.h*0.55+V.p3y, S=Math.min(W,L.h)*0.42*V.z3;
+  const cyw=Math.cos(V.yaw), syw=Math.sin(V.yaw), cp=Math.cos(V.pitch), sp=Math.sin(V.pitch);
+  const hk=0.45*V.h3/vmax;
+  function P(x,y,v){const X=(x-cx)/R, Y=(y-cy)/R, Z=v*hk;
+    const x1=X*cyw-Y*syw, y1=X*syw+Y*cyw;
+    return [Cx+x1*S, Cy-(y1*cp+Z*sp)*S, y1*sp-Z*cp];}
+  ctx.save(); ctx.beginPath(); ctx.rect(0,0,L.cbX-12,L.h); ctx.clip();
+  // base: wafer outline + zero plane axes
+  ctx.strokeStyle='#c4cbd6'; ctx.lineWidth=1; ctx.beginPath();
+  for(let k=0;k<=120;k++){const a=k/120*2*Math.PI, p=P(cx+R*Math.cos(a),cy+R*Math.sin(a),0); k?ctx.lineTo(p[0],p[1]):ctx.moveTo(p[0],p[1]);} ctx.stroke();
+  const o=P(cx,cy,0), ax=P(cx+R*1.12,cy,0), ay=P(cx,cy+R*1.12,0), az=P(cx-R,cy-R,vmax);
+  ctx.strokeStyle='#8a93a3'; ctx.fillStyle='#6b7383'; ctx.font='11px system-ui';
+  [[ax,'+X'],[ay,'+Y']].forEach(([p,l])=>{ctx.beginPath();ctx.moveTo(o[0],o[1]);ctx.lineTo(p[0],p[1]);ctx.stroke();ctx.fillText(l,p[0]+4,p[1]);});
+  const zb=P(cx-R,cy-R,0); ctx.beginPath(); ctx.moveTo(zb[0],zb[1]); ctx.lineTo(az[0],az[1]); ctx.stroke();
+  ctx.fillText(vmax.toFixed(3),az[0]+4,az[1]+3); ctx.fillText('0',zb[0]+4,zb[1]+3);
+  // quads
+  const quads=[];
+  for(let gy=0;gy<NGY-1;gy++)for(let gx=0;gx<NGX-1;gx++){
+    const ids=[G[gy*NGX+gx],G[gy*NGX+gx+1],G[(gy+1)*NGX+gx+1],G[(gy+1)*NGX+gx]];
+    if(ids.some(i=>i<0)) continue;
+    const vs=ids.map(i=>heightOf(md,i,t)); if(vs.some(v=>!isFinite(v))) continue;
+    const pts=ids.map((i,k)=>P(xs[i],ys[i],vs[k]));
+    let col, below=false;
+    if(thrActive()){ // quad is "in focus" if any corner passes the threshold
+      below=!ids.some(i=>passes(md.VX[i*T+t],md.VY[i*T+t]));
+      if(below&&st.thrBelow==='hide') continue;
+    }
+    if(below) col=DIM;
+    else if(st.cmode==='dir'){let sa=0,sb=0;ids.forEach(i=>{sa+=md.VX[i*T+t];sb+=md.VY[i*T+t]});col=hsl(Math.atan2(sb,sa));}
+    else col=valColour((vs[0]+vs[1]+vs[2]+vs[3])/4,vmax);
+    quads.push({pts,col,below,d:(pts[0][2]+pts[1][2]+pts[2][2]+pts[3][2])/4});
+  }
+  quads.sort((a,b)=>b.d-a.d); // far first
+  ctx.lineJoin='round';
+  for(const q of quads){
+    ctx.beginPath(); q.pts.forEach((p,k)=>k?ctx.lineTo(p[0],p[1]):ctx.moveTo(p[0],p[1])); ctx.closePath();
+    if(st.mesh){ctx.strokeStyle=q.col; ctx.lineWidth=1; ctx.stroke();}
+    else {ctx.fillStyle=q.col; ctx.fill(); ctx.strokeStyle=q.below?'rgba(30,35,48,.06)':'rgba(30,35,48,.18)'; ctx.lineWidth=0.6; ctx.stroke();}
+  }
+  ctx.restore();
+  ctx.fillStyle='#6b7383'; ctx.font='11px system-ui';
+  const hl=eC()==='x'?'X component':eC()==='y'?'Y component':'|v|';
+  ctx.fillText(`3D ${st.mesh?'mesh':'surface'} · height = ${hl}`+(thrActive()?` · focus ≥ ${st.thr}`:''),10,16);
+}
+
+function draw2D(md){
+  const t=st.t, ctx=mctx;
+  ctx.save(); ctx.beginPath(); ctx.rect(0,0,L.cbX-12,L.h); ctx.clip();
+  // wafer outline
+  const cx=(xmin+xmax)/2, cy=(ymin+ymax)/2, R=Math.max(xmax-xmin,ymax-ymin)/2+pitch*0.8;
+  ctx.strokeStyle='#cfd5df'; ctx.lineWidth=1; ctx.beginPath(); ctx.arc(sx(cx),sy(cy),R*L.s*V.z,0,2*Math.PI); ctx.stroke();
+  // die grid dots
+  const cell=pitch*L.s*V.z;
+  const lwMax=Math.max(2.2,Math.min(4,cell/12));
+  ctx.fillStyle='#e9ecf1';
+  for(let i=0;i<N;i++){ctx.fillRect(sx(xs[i])-cell/2+0.5,sy(ys[i])-cell/2+0.5,cell-1,cell-1);}
+  const k=cell*0.9/md.p95*st.scale; // px per unit
+  const lw=Math.max(1,Math.min(lwMax,cell/9));
+  // trails
+  if(st.trail){
+    const t0=Math.max(0,t-st.trailN+1);
+    ctx.lineWidth=1;
+    for(let i=0;i<N;i++){
+      if(thrActive()&&st.thrBelow==='hide'&&!passes(md.VX[i*T+t],md.VY[i*T+t])) continue;
+      ctx.beginPath(); let started=false;
+      for(let u=t0;u<=t;u++){const a=md.VX[i*T+u],b=md.VY[i*T+u]; if(isNaN(a)||isNaN(b))continue;
+        const X=sx(xs[i])+a*k, Y=sy(ys[i])-b*k; if(!started){ctx.moveTo(X,Y);started=true}else ctx.lineTo(X,Y);}
+      ctx.strokeStyle='rgba(90,100,120,.35)'; ctx.stroke();
+    }
+  }
+  for(let i=0;i<N;i++){
+    const a=md.VX[i*T+t], b=md.VY[i*T+t];
+    const X=sx(xs[i]), Y=sy(ys[i]);
+    if(isNaN(a)||isNaN(b)){ctx.strokeStyle='#999';ctx.lineWidth=1;ctx.beginPath();ctx.moveTo(X-3,Y-3);ctx.lineTo(X+3,Y+3);ctx.moveTo(X+3,Y-3);ctx.lineTo(X-3,Y+3);ctx.stroke();continue;}
+    if(!passes(a,b)){ if(st.thrBelow==='hide') continue; arrow(ctx,X,Y,X+a*k,Y-b*k,DIM,Math.max(1,lw*0.6)); continue; }
+    arrow(ctx,X,Y,X+a*k,Y-b*k,colourFor(md,a,b),lw);
+  }
+  if(ZN.on) drawZones(ctx,md,t);
+  // ring around the worst die of this scan
+  {const im=md.series.imax[t]; if(im>=0&&st.view==='2d'){ctx.strokeStyle='#d0021b';ctx.lineWidth=1.5;ctx.beginPath();ctx.arc(sx(xs[im]),sy(ys[im]),Math.max(6,cell*0.6),0,7);ctx.stroke();}}
+  // reference arrow
+  const refV=niceNum(md.p95);
+  ctx.fillStyle='#1d2330'; ctx.font='11px system-ui';
+  arrow(ctx,14,L.h-14,14+refV*k,L.h-14,'#1d2330',1.6);
+  ctx.fillText(`${refV}`,18+refV*k,L.h-10);
+  {const tags=[]; if(V.z!==1) tags.push(`zoom ${V.z.toFixed(1)}×`); if(thrActive()) tags.push(`focus ${thrBasisLabel()} ≥ ${st.thr}`);
+   if(tags.length){ctx.fillStyle='#6b7383';ctx.fillText(tags.join(' · '),10,16);}}
+  ctx.restore();
+}
+// ---------- convergence / divergence zones ----------
+const ZN={on:false,src:false,r:2.5,f:0.75,a:45,l:0.2,nmin:12,pw:5,pk:3,oct:6}; const znCache={key:null,res:{}};
+function findZones(md,t){
+  const key=[st.mode,ZN.r,ZN.f,ZN.a,ZN.l,ZN.src,ZN.nmin,ZN.oct].join('|'); if(znCache.key!==key){znCache.key=key;znCache.res={};}
+  if(md.VX!==modeData(st.mode).VX) return rawZones(md,t); // synthetic/test fields bypass the cache
+  if(!znCache.res[t]) znCache.res[t]=rawZones(md,t); return znCache.res[t];
+}
+function rawZones(md,t){
+  const R=ZN.r*pitch, R2=R*R, rMin=0.35*pitch, cosT=Math.cos(ZN.a*Math.PI/180), minLen=ZN.l*md.p95, NR=Math.ceil(ZN.r)+1;
+  const cands=[];
+  for(let hy=0;hy<=2*(NGY-1);hy++)for(let hx=0;hx<=2*(NGX-1);hx++){
+    const cx=xmin+hx*pitch/2, cy=ymin+hy*pitch/2, gx0=Math.round(hx/2), gy0=Math.round(hy/2);
+    if(G[gy0*NGX+gx0]<0) continue; // centre must be on the wafer
+    let n=0,nin=0,nout=0,sin=0,sout=0,octIn=0,octOut=0;
+    for(let gy=gy0-NR;gy<=gy0+NR;gy++){if(gy<0||gy>=NGY)continue;
+      for(let gx=gx0-NR;gx<=gx0+NR;gx++){if(gx<0||gx>=NGX)continue; const i=G[gy*NGX+gx]; if(i<0)continue;
+        const dx=cx-xs[i], dy=cy-ys[i], d2=dx*dx+dy*dy; if(d2>R2||d2<rMin*rMin)continue;
+        const a=md.VX[i*T+t], b=md.VY[i*T+t]; if(!isFinite(a)||!isFinite(b))continue; const len=Math.hypot(a,b); if(len<minLen)continue;
+        const d=Math.sqrt(d2), c=(a*dx+b*dy)/(len*d); n++;
+        const oct=((Math.round(Math.atan2(-dy,-dx)/(Math.PI/4))%8)+8)%8; // direction of the die as seen from the centre
+        if(c>=cosT){nin++;sin+=c*len;octIn|=1<<oct;} else if(c<=-cosT){nout++;sout-=c*len;octOut|=1<<oct;}
+      }}
+    if(n<ZN.nmin) continue;
+    const bits=m=>{let k=0;for(;m;m&=m-1)k++;return k;};
+    if(nin/n>=ZN.f&&bits(octIn)>=ZN.oct) cands.push({x:cx,y:cy,type:'in',frac:nin/n,n,score:(nin/n)*sin/n});
+    if(ZN.src&&nout/n>=ZN.f&&bits(octOut)>=ZN.oct) cands.push({x:cx,y:cy,type:'out',frac:nout/n,n,score:(nout/n)*sout/n});
+  }
+  cands.sort((p,q)=>q.score-p.score); const res=[];
+  for(const c of cands){ if(res.some(r=>r.type===c.type&&Math.hypot(r.x-c.x,r.y-c.y)<R)) continue; res.push(c); }
+  return res;
+}
+// persistence: keep a zone only if a same-type zone lies within half the radius in >= pk of the last pw scans (incl. this one)
+function zonesAt(md,t){
+  const now=findZones(md,t); if(ZN.pw<=1||ZN.pk<=1) return now.map(z=>({...z,hits:1}));
+  const R=ZN.r*pitch, t0=Math.max(0,t-ZN.pw+1), win=t-t0+1, need=Math.min(ZN.pk,win);
+  const prev=[]; for(let u=t0;u<t;u++) prev.push(findZones(md,u));
+  return now.map(z=>({...z,hits:1+prev.filter(zs=>zs.some(q=>q.type===z.type&&Math.hypot(q.x-z.x,q.y-z.y)<=R/2)).length,win})).filter(z=>z.hits>=need);
+}
+function drawZones(ctx,md,t){
+  const zs=zonesAt(md,t), rp=ZN.r*pitch*L.s*V.z;
+  ctx.save(); ctx.font='bold 11px system-ui';
+  for(const z of zs){const X=sx(z.x),Y=sy(z.y), col=z.type==='in'?'#c2185b':'#00838f';
+    ctx.strokeStyle='rgba(255,255,255,.9)'; ctx.lineWidth=5; ctx.beginPath(); ctx.arc(X,Y,rp,0,7); ctx.stroke();
+    ctx.strokeStyle=col; ctx.lineWidth=2.5; ctx.setLineDash(z.type==='in'?[]:[7,4]); ctx.beginPath(); ctx.arc(X,Y,rp,0,7); ctx.stroke(); ctx.setLineDash([]);
+    ctx.fillStyle=col; ctx.beginPath(); ctx.arc(X,Y,3,0,7); ctx.fill();
+    const lbl=`${z.type==='in'?'→●':'●→'} ${Math.round(100*z.frac)}%`, w=ctx.measureText(lbl).width;
+    ctx.fillStyle='rgba(255,255,255,.85)'; ctx.fillRect(X-w/2-3,Y-rp-17,w+6,15); ctx.fillStyle=col; ctx.fillText(lbl,X-w/2,Y-rp-6);}
+  ctx.restore();
+}
+function niceNum(v){const p=Math.pow(10,Math.floor(Math.log10(v)));const m=v/p;return +( (m<1.5?1:m<3.5?2:m<7.5?5:10)*p ).toPrecision(2);}
+
+function drawColourbar(md){
+  const ctx=mctx, x=L.cbX, y0=30, h=Math.min(260,L.h-80), w=14;
+  ctx.font='11px system-ui'; ctx.fillStyle='#6b7383';
+  if(st.cmode==='dir'){
+    const cx=x+24, cy=y0+30, r=24;
+    for(let a=0;a<360;a+=3){ctx.strokeStyle=`hsl(${a},80%,45%)`;ctx.lineWidth=7;ctx.beginPath();ctx.arc(cx,cy,r,-(a+3)*Math.PI/180,-a*Math.PI/180);ctx.stroke();}
+    ctx.fillText('angle',x+8,y0-10); ctx.fillText('+X',cx+r+4,cy+4); ctx.fillText('+Y',cx-7,cy-r-6);
+    return;
+  }
+  const div=st.cmode!=='mag', ud=st.cmode==='ud';
+  const vmax=vmaxOf(md);
+  const clo=cLo(vmax), chi=cHi(vmax);
+  // bar position f (0 bottom .. 1 top) -> data value
+  const fv=f=>div?(f>=0.5?1:-1)*(clo+Math.abs(f*2-1)*(chi-clo)):clo+f*(chi-clo);
+  for(let j=0;j<h;j++){const f=1-j/h, v=fv(f); ctx.fillStyle=ud?udColour(v,vmax):div?diverg(nrm(v,vmax)):turbo(nrm(v,vmax)); ctx.fillRect(x,y0+j,w,1.5);}
+  ctx.strokeStyle='#cfd5df'; ctx.lineWidth=1; ctx.strokeRect(x,y0,w,h);
+  ctx.fillStyle='#1d2330';
+  const lab=ud?(st.udAxis==='y'?'Y  ▲ up':'X  ▶ right'):st.cmode==='mag'?'|v|':st.cmode==='x'?'X':'Y';
+  ctx.fillText(lab,x,y0-10);
+  if(ud){ctx.fillStyle='#6b7383'; ctx.fillText(st.udAxis==='y'?'▼ down':'◀ left',x,y0+h+(thrActive()?44:16)); ctx.fillStyle='#1d2330';}
+  for(let q=0;q<=4;q++){const v=fv(1-q/4); ctx.fillText((div&&clo>0&&q===2?'±'+clo.toFixed(3):v.toFixed(3)),x+w+4,y0+h*q/4+4);}
+  if(thrActive()&&!st.thrStretch&&st.thr<vmax){ // mark threshold on unstretched bar
+    ctx.strokeStyle='#1d2330'; ctx.lineWidth=1.5;
+    const marks=div?[0.5+0.5*st.thr/vmax,0.5-0.5*st.thr/vmax]:[st.thr/vmax];
+    marks.forEach(f=>{const yy=y0+h*(1-f); ctx.beginPath(); ctx.moveTo(x-4,yy); ctx.lineTo(x+w+2,yy); ctx.stroke();});
+  }
+  if(thrActive()){ctx.fillStyle='#6b7383'; ctx.fillText('focus ≥',x-4,y0+h+18); ctx.fillText(String(st.thr),x-4,y0+h+31);}
+}
+
+// ---------- trend / stability ----------
+// timestamps 'DD-MM HH:MM:SS' (no year) -> minutes from first scan
+const TMIN=(()=>{const p=D.times.map(s=>{const m=/(\d+)-(\d+)\s+(\d+):(\d+):(\d+)/.exec(s);return m?new Date(2001,+m[2]-1,+m[1],+m[3],+m[4],+m[5]).getTime():NaN;});
+  const ok=p.every(isFinite); return p.map((v,i)=>ok?(v-p[0])/60000:i);})();
+const TR={ser:'mean',W:10,N:10,tol:null,show:true,crit:'band',drift:0.01};
+function serNoise(arr){ // robust scan-to-scan sigma: MAD of first differences / (0.6745*sqrt2)
+  const d=[];for(let t=1;t<arr.length;t++){const v=arr[t]-arr[t-1];if(isFinite(v))d.push(v);}
+  if(!d.length) return 0; d.sort((a,b)=>a-b); const med=d[d.length>>1];
+  const ad=d.map(v=>Math.abs(v-med)).sort((a,b)=>a-b); return ad[ad.length>>1]/0.6745/Math.SQRT2;}
+function slopeAt(arr,t,W){ // trailing LSQ over [t-W+1,t]; returns slope per minute and fit
+  const a=Math.max(0,t-W+1); let n=0,sx=0,sy=0,sxx=0,sxy=0;
+  for(let u=a;u<=t;u++){const y=arr[u],x=TMIN[u];if(!isFinite(y))continue;n++;sx+=x;sy+=y;sxx+=x*x;sxy+=x*y;}
+  if(n<3) return null; const den=n*sxx-sx*sx; if(!den) return null;
+  const b=(n*sxy-sx*sy)/den, c=(sy-b*sx)/n; return {b,c,a,t,n};}
+function slopeRange(arr,a,b){let n=0,sx=0,sy=0,sxx=0,sxy=0;
+  for(let u=a;u<=b;u++){const y=arr[u],x=TMIN[u];if(!isFinite(y))continue;n++;sx+=x;sy+=y;sxx+=x*x;sxy+=x*y;}
+  const den=n*sxx-sx*sx; return n>=3&&den?(n*sxy-sx*sy)/den:NaN;}
+function trendCalc(md){
+  const arr=md.series[TR.ser], N=Math.max(2,TR.N);
+  if(TR.tol==null||!isFinite(TR.tol)) {TR.tol=+(3*serNoise(arr)).toPrecision(3); $('trTol').value=TR.tol;}
+  const tol=TR.tol, stable=new Array(T).fill(null);
+  for(let t=0;t+N-1<T;t++){let m=0,k=0;for(let u=t;u<t+N;u++){if(isFinite(arr[u])){m+=arr[u];k++;}} if(!k){stable[t]=false;continue;} m/=k;
+    const end=TR.crit==='hold'?T-1:t+N-1;
+    let ok=true; for(let u=t;u<=end;u++){if(isFinite(arr[u])&&Math.abs(arr[u]-m)>tol){ok=false;break;}}
+    if(ok&&TR.crit==='drift'){const b=slopeRange(arr,t,t+N-1)*60; ok=isFinite(b)&&Math.abs(b)<=TR.drift;}
+    stable[t]=ok;}
+  let settled=-1; for(let t=T-N;t>=0;t--){if(stable[t]) settled=t; else break;}
+  let first=stable.findIndex(v=>v===true);
+  // sanity check: net fitted drift from the settle point to the end of data
+  let post=null; if(settled>=0&&T-1-settled>=3){const b=slopeRange(arr,settled,T-1); const dur=TMIN[T-1]-TMIN[settled]; post={perH:b*60,delta:b*dur,dur};}
+  return {arr,tol,N,stable,settled,first,post};
+}
+function fmtDur(min){const m=Math.round(min);return m>=60?`${Math.floor(m/60)}h ${m%60}m`:`${m} min`;}
+
+const TSV={mean:true,max:true,sx:true,sy:true}; let TSMAXAX=true;
+const tsC=$('ts');
+function drawTS(){
+  const md=modeData(st.mode), ctx=tsC.getContext('2d'), W=L.tw, H=170, pl=44, pt=8, pb=22; let pr=10;
+  ctx.clearRect(0,0,W,H);
+  const S=md.series, vis=TSV, maxR=vis.max&&TSMAXAX;
+  const leftKeys=['mean','sx','sy'].filter(k=>vis[k]).concat(vis.max&&!maxR?['max']:[]);
+  let all=[];leftKeys.forEach(k=>{all=all.concat(S[k])}); all=all.filter(isFinite);
+  const vmax=(all.length?Math.max(...all):(maxR?1:1))*1.08, vmin=0;
+  const vmax2=maxR?Math.max(...S.max.filter(isFinite))*1.08:1;
+  if(maxR) pr=46;
+  const X=t=>pl+(W-pl-pr)*(T>1?t/(T-1):0), Y=v=>pt+(H-pt-pb)*(1-(v-vmin)/(vmax-vmin)), Y2=v=>pt+(H-pt-pb)*(1-v/vmax2);
+  const Yk=k=>k==='max'&&maxR?Y2:Y;  // y-mapping for a given series
+  ctx.font='10px system-ui'; ctx.fillStyle='#6b7383'; ctx.strokeStyle='#eef0f4'; ctx.lineWidth=1;
+  for(let q=0;q<=4;q++){const v=vmin+(vmax-vmin)*q/4, y=Y(v); ctx.beginPath();ctx.moveTo(pl,y);ctx.lineTo(W-pr,y);ctx.stroke(); if(leftKeys.length) ctx.fillText(v.toFixed(3),4,y+3);
+    if(maxR){ctx.fillStyle='#7b4fd6'; ctx.fillText((vmax2*q/4).toFixed(3),W-pr+4,Y2(vmax2*q/4)+3); ctx.fillStyle='#6b7383';}}
+  const step=Math.max(1,Math.round(T/12));
+  for(let t=0;t<T;t+=step){ctx.fillText(D.runs[t],X(t)-6,H-6);}
+  const COL={mean:'#2f6fed',max:'#7b4fd6',sx:'#e8743b',sy:'#19a979'};
+  ['max','sx','sy','mean'].filter(k=>vis[k]).forEach(k=>{const Yf=Yk(k);
+    ctx.strokeStyle=COL[k]; ctx.lineWidth=1.6; ctx.setLineDash(k==='max'&&maxR?[5,2]:[]); ctx.beginPath(); S[k].forEach((v,t)=>{t?ctx.lineTo(X(t),Yf(v)):ctx.moveTo(X(t),Yf(v))}); ctx.stroke(); ctx.setLineDash([]);});
+  if(!['mean','max','sx','sy'].some(k=>vis[k])){ctx.fillStyle='#6b7383';ctx.fillText('All series hidden - tick one in the legend',pl+10,pt+20);}
+  ctx.strokeStyle='#1d2330'; ctx.lineWidth=1.2; ctx.beginPath(); ctx.moveTo(X(st.t),pt); ctx.lineTo(X(st.t),H-pb); ctx.stroke();
+  ['mean','max','sx','sy'].filter(k=>vis[k]).forEach(k=>{ctx.fillStyle=COL[k]; ctx.beginPath(); ctx.arc(X(st.t),Yk(k)(S[k][st.t]),3,0,7); ctx.fill();});
+  tsC._X=X; tsC._pl=pl; tsC._pr=pr;
+  // ---- trend overlay
+  const tr=trendCalc(md), arr=tr.arr, sl=slopeAt(arr,st.t,Math.max(3,TR.W));
+  const serCol={mean:'#2f6fed',sx:'#e8743b',sy:'#19a979',max:'#7b4fd6'}[TR.ser];
+  {const Y=Yk(TR.ser); // overlay drawn on the analysed series' own axis
+  if(TR.show){
+    ctx.save();
+    // stable window starts: thin green strip at the bottom of the plot
+    for(let t=0;t<T;t++){if(tr.stable[t]===true){ctx.fillStyle='rgba(25,169,121,.55)';ctx.fillRect(X(t)-((W-pl-pr)/(T-1||1))/2,H-pb-4,(W-pl-pr)/(T-1||1)+0.5,4);}
+      else if(tr.stable[t]===false){ctx.fillStyle='rgba(192,57,43,.35)';ctx.fillRect(X(t)-((W-pl-pr)/(T-1||1))/2,H-pb-4,(W-pl-pr)/(T-1||1)+0.5,4);}}
+    if(tr.settled>=0){
+      ctx.fillStyle='rgba(25,169,121,.08)'; ctx.fillRect(X(tr.settled),pt,W-pr-X(tr.settled),H-pt-pb);
+      ctx.strokeStyle='#19a979'; ctx.setLineDash([4,3]); ctx.lineWidth=1.2; ctx.beginPath(); ctx.moveTo(X(tr.settled),pt); ctx.lineTo(X(tr.settled),H-pb); ctx.stroke(); ctx.setLineDash([]);
+      // tolerance band for the first settled window
+      let m=0,k=0; for(let u=tr.settled;u<tr.settled+tr.N&&u<T;u++){if(isFinite(arr[u])){m+=arr[u];k++;}} m/=k||1;
+      ctx.fillStyle='rgba(25,169,121,.18)'; const y1=Y(m+tr.tol), y2=Y(m-tr.tol);
+      ctx.fillRect(X(tr.settled),Math.max(pt,y1),X(Math.min(T-1,tr.settled+tr.N-1))-X(tr.settled),Math.min(H-pb,y2)-Math.max(pt,y1));
+      ctx.fillStyle='#127a57'; ctx.font='10px system-ui'; ctx.fillText(`settled from run ${D.runs[tr.settled]}`,Math.min(X(tr.settled)+4,W-pr-110),pt+10);
+    }
+    // slope segment at the cursor
+    if(sl){ctx.strokeStyle='#1d2330';ctx.lineWidth=2;ctx.setLineDash([5,3]);ctx.beginPath();
+      ctx.moveTo(X(sl.a),Y(sl.c+sl.b*TMIN[sl.a]));ctx.lineTo(X(sl.t),Y(sl.c+sl.b*TMIN[sl.t]));ctx.stroke();ctx.setLineDash([]);}
+    ctx.restore();
+  }}
+  // ---- text output
+  const out=[];
+  if(sl){
+    const perH=sl.b*60, winMin=TMIN[sl.t]-TMIN[sl.a], dWin=sl.b*winMin;
+    // visual angle on this chart (pixel space)
+    const dxp=X(sl.t)-X(sl.a), dyp=Y(sl.c+sl.b*TMIN[sl.a])-Y(sl.c+sl.b*TMIN[sl.t]);
+    const ang=dxp>0?Math.atan2(dyp,dxp)*180/Math.PI:0;
+    const lvl=sl.c+sl.b*TMIN[sl.t], pct=lvl?100*perH/lvl:0;
+    const state=Math.abs(dWin)<=tr.tol?['flat','st-flat','≈ flat']:perH>0?['rise','st-rise','▲ rising']:['fall','st-fall','▼ falling'];
+    out.push(['Slope (trailing '+sl.n+' scans)',`${perH>=0?'+':''}${perH.toFixed(4)} /h`,`${pct>=0?'+':''}${pct.toFixed(1)} %/h of level · Δ over window ${dWin>=0?'+':''}${dWin.toFixed(4)}`]);
+    out.push(['Angle on chart',`${ang>=0?'+':''}${ang.toFixed(1)}°`,'depends on chart scaling']);
+    out.push(['State',`<span class="${state[1]}">${state[2]}</span>`,`|Δ window| ${Math.abs(dWin).toFixed(4)} vs tol ${tr.tol}`]);
+  } else out.push(['Slope','–','need ≥ 3 scans in window']);
+  const sNow=tr.stable[st.t];
+  out.push([`This scan: next ${tr.N} within ±${tr.tol}`, sNow==null?'n/a':sNow?'<span class="st-flat">✔ stable</span>':'<span class="st-rise">✘ not stable</span>', sNow==null?`fewer than ${tr.N} scans left`:'']);
+  out.push(['Settled from', tr.settled>=0?`scan ${tr.settled+1} · run ${D.runs[tr.settled]}`:'<span class="st-rise">not settled</span>',
+    tr.settled>=0?`${D.times[tr.settled]} · ${fmtDur(TMIN[tr.settled])} after start`:(tr.first>=0?`first stable window at run ${D.runs[tr.first]}, but later windows fail`:'no stable window found')]);
+  if(tr.post){const bad=Math.abs(tr.post.delta)>tr.tol;
+    out.push(['Net drift settle → end',`<span class="${bad?'st-rise':'st-flat'}">${tr.post.delta>=0?'+':''}${tr.post.delta.toFixed(4)}</span>`,
+      `${tr.post.perH>=0?'+':''}${tr.post.perH.toFixed(4)} /h over ${fmtDur(tr.post.dur)}`+(bad?'<br><b class="st-rise">⚠ exceeds tol: slow drift not caught by the N-window test</b>':'')]);}
+  $('trendOut').innerHTML=out.map(([n,v,h])=>`<div class="stat"><b>${v}</b><span>${n}${h?'<br>'+h:''}</span></div>`).join('');
+}
+tsC.addEventListener('click',e=>{const r=tsC.getBoundingClientRect(); const f=(e.clientX-r.left-tsC._pl)/(r.width-tsC._pl-tsC._pr); setT(Math.round(f*(T-1)));});
+
+function updateStats(md){
+  const S=md.series, t=st.t;
+  $('runLabel').textContent=`Scan ${t+1}/${T} · run ${D.runs[t]} · ${D.times[t]}`;
+  $('slider').value=t;
+  const im=S.imax[t], vName={abs:'shift (X,Y)',ref:'change vs first scan',prev:'change vs previous scan',mean:'deviation from per-die mean'}[st.mode];
+  const cells=[['Mean |v| · average over all dies',S.mean[t]],['Max |v| · single worst die'+(im>=0?`<br>at x=${xs[im]}, y=${ys[im]}`:''),S.max[t]],
+    ['Mean X (signed)',S.mx[t]],['Mean Y (signed)',S.my[t]],['Std X across dies',S.sx[t]],['Std Y across dies',S.sy[t]]];
+  let znHtml=''; if(ZN.on&&st.view==='2d'){const zs=zonesAt(md,t), ni=zs.filter(z=>z.type==='in').length, no=zs.filter(z=>z.type==='out').length;
+    znHtml=`<div class="stat" style="grid-column:1/3"><b style="color:#c2185b">${ni} in-zone${ni===1?'':'s'}${ZN.src?` · <span style="color:#00838f">${no} out-zone${no===1?'':'s'}</span>`:''}</b><span>${zs.slice(0,4).map(z=>`${z.type==='in'?'in':'out'} @ x ${(z.x/1000).toFixed(1)}, y ${(z.y/1000).toFixed(1)} mm (${Math.round(100*z.frac)}% of ${z.n}${ZN.pw>1?`, seen ${z.hits}/${z.win}`:''})`).join('<br>')||'no zone meets the rule in this scan'}</span></div>`;}
+  let html=`<div class="hint" style="grid-column:1/3">|v| = length of each die's vector, v = ${vName}. Mean and Max are two statistics of the same quantity.</div>`;
+  html+=cells.map(([n,v])=>`<div class="stat"><b>${(Math.abs(v)<5e-5?0:v).toFixed(4)}</b><span>${n}</span></div>`).join('');
+  html+=znHtml;
+  if(thrActive()){let n=0,v=0;for(let i=0;i<N;i++){const a=md.VX[i*T+t],b=md.VY[i*T+t];if(isNaN(a)||isNaN(b))continue;v++;if(passes(a,b))n++;}
+    html+=`<div class="stat" style="grid-column:1/3"><b>${n} / ${v}</b><span>dies with ${thrBasisLabel()} ≥ ${st.thr} (${v?(100*n/v).toFixed(1):0}%)</span></div>`;}
+  $('stats').innerHTML=html;
+}
+
+// hover
+// ---------- navigation: zoom / pan (2D), rotate / zoom / pan (3D) ----------
+let drag=null;
+function zoomAt(f,mx,my){
+  if(st.view==='3d'){V.z3=Math.max(0.3,Math.min(8,V.z3*f));}
+  else{const nz=Math.max(0.5,Math.min(40,V.z*f)); f=nz/V.z; V.px=mx-(mx-V.px)*f; V.py=my-(my-V.py)*f; V.z=nz;}
+  draw();
+}
+function resetView(){Object.assign(V,{z:1,px:0,py:0,yaw:-0.55,pitch:0.95,z3:1,p3x:0,p3y:0});draw();}
+map.addEventListener('wheel',e=>{e.preventDefault();const r=map.getBoundingClientRect();zoomAt(Math.exp(-e.deltaY*0.0015),e.clientX-r.left,e.clientY-r.top);},{passive:false});
+map.addEventListener('mousedown',e=>{drag={x:e.clientX,y:e.clientY,shift:e.shiftKey||e.button===2};map.classList.add('grabbing');$('tip').style.display='none';});
+map.addEventListener('contextmenu',e=>e.preventDefault());
+window.addEventListener('mouseup',()=>{drag=null;map.classList.remove('grabbing');});
+window.addEventListener('mousemove',e=>{
+  if(!drag) return; const dx=e.clientX-drag.x, dy=e.clientY-drag.y; drag.x=e.clientX; drag.y=e.clientY;
+  if(st.view==='3d'){
+    if(drag.shift){V.p3x+=dx;V.p3y+=dy;} else {V.yaw+=dx*0.008; V.pitch=Math.max(0,Math.min(Math.PI/2,V.pitch+dy*0.008));}
+  } else {V.px+=dx; V.py+=dy;}
+  draw();
+});
+map.addEventListener('dblclick',resetView);
+$('zIn').onclick=()=>zoomAt(1.4,(L.cbX-12)/2,L.h/2);
+$('zOut').onclick=()=>zoomAt(1/1.4,(L.cbX-12)/2,L.h/2);
+$('zReset').onclick=resetView;
+$('bBig').onclick=()=>{document.body.classList.toggle('big');$('bBig').classList.toggle('on');$('bBig').textContent=document.body.classList.contains('big')?'⤡ Normal map':'⤢ Large map';resize();$('mapCard').scrollIntoView({block:'start'});};
+function setNavHint(){$('navHint').textContent=st.view==='3d'?'Drag: rotate · Shift/right-drag: pan · Wheel: zoom · Double-click: reset':'Wheel: zoom at cursor · Drag: pan · Double-click: reset';
+  map.classList.toggle('grab',true);}
+$('b3d').onclick=()=>{st.view=st.view==='3d'?'2d':'3d';$('b3d').classList.toggle('on',st.view==='3d');$('b3d').textContent=st.view==='3d'?'2D quiver':'3D view';
+  $('bMesh').disabled=st.view!=='3d';$('h3Ctl').style.display=st.view==='3d'?'':'none';$('tip').style.display='none';setNavHint();draw();};
+$('bMesh').onclick=()=>{st.mesh=!st.mesh;$('bMesh').classList.toggle('on',st.mesh);$('bMesh').textContent='Mesh: '+(st.mesh?'on':'off');draw();};
+$('h3').oninput=e=>{V.h3=+e.target.value;$('h3Val').textContent=V.h3.toFixed(2)+'×';draw();};
+$('h3Val').textContent='1.00×'; setNavHint();
+
+map.addEventListener('mousemove',e=>{
+  if(drag||st.view==='3d'){$('tip').style.display='none';return;}
+  const r=map.getBoundingClientRect(), mx=e.clientX-r.left, my=e.clientY-r.top;
+  const bx=(mx-V.px)/V.z, by=(my-V.py)/V.z;
+  const wx=(bx-L.ox)/L.s+xmin-L.pad, wy=ymax+L.pad-(by-L.oy)/L.s;
+  let best=-1,bd=Infinity; for(let i=0;i<N;i++){const d=(xs[i]-wx)**2+(ys[i]-wy)**2; if(d<bd){bd=d;best=i}}
+  const tip=$('tip');
+  if(best<0||Math.sqrt(bd)>pitch*0.7){tip.style.display='none';return;}
+  const md=modeData(st.mode), a=md.VX[best*T+st.t], b=md.VY[best*T+st.t];
+  const ra=RX[best*T+st.t], rb=RY[best*T+st.t];
+  tip.innerHTML=`die x=${xs[best]} y=${ys[best]}<br>vector: dx=${a.toFixed(4)} dy=${b.toFixed(4)} |v|=${Math.hypot(a,b).toFixed(4)}<br>raw shift: X=${ra.toFixed(4)} Y=${rb.toFixed(4)} |S|=${Math.hypot(ra,rb).toFixed(4)}`+(thrActive()&&isFinite(a)&&!passes(a,b)?'<br><i>below focus threshold</i>':'');
+  tip.style.display='block';
+  let tx=mx+16, ty=my+12; if(tx+260>r.width) tx=mx-270; tip.style.left=(tx+12)+'px'; tip.style.top=(ty+12)+'px';
+});
+map.addEventListener('mouseleave',()=>$('tip').style.display='none');
+
+function setT(t){st.t=Math.max(0,Math.min(T-1,t)); if(typeof curTab!=='undefined'&&curTab==='mgmt') renderMgmt(); else draw();}
+$('slider').addEventListener('input',e=>setT(+e.target.value));
+$('prevB').onclick=()=>setT(st.t-1); $('nextB').onclick=()=>setT(st.t+1);
+$('mode').onchange=e=>{st.mode=e.target.value;TR.tol=null;syncThr();draw()};
+$('cmode').onchange=e=>{st.cmode=e.target.value;$('udCtl').style.display=st.cmode==='ud'?'':'none';syncThr();draw()};
+function udLabels(){const y=st.udAxis==='y';$('udPosL').textContent=y?'Up (+Y)':'Right (+X)';$('udNegL').textContent=y?'Down (−Y)':'Left (−X)';}
+$('udAxis').onchange=e=>{st.udAxis=e.target.value;udLabels();syncThr();draw()};
+$('udPos').oninput=e=>{st.udPos=e.target.value;draw()};
+$('udNeg').oninput=e=>{st.udNeg=e.target.value;draw()};
+$('udNeu').oninput=e=>{st.udNeu=e.target.value;draw()};
+$('udDead').onchange=e=>{const v=+e.target.value;st.udDead=isFinite(v)&&v>0?v:0;e.target.value=st.udDead;draw()};
+$('udShade').onchange=e=>{st.udShade=e.target.checked;draw()};
+$('udSwap').onclick=()=>{[st.udPos,st.udNeg]=[st.udNeg,st.udPos];$('udPos').value=st.udPos;$('udNeg').value=st.udNeg;draw()};
+$('trSer').onchange=e=>{TR.ser=e.target.value;TR.tol=null;draw()};
+$('trW').onchange=e=>{TR.W=Math.max(3,Math.min(T,+e.target.value||10));e.target.value=TR.W;draw()};
+$('trN').onchange=e=>{TR.N=Math.max(2,Math.min(T,+e.target.value||10));e.target.value=TR.N;draw()};
+$('trTol').onchange=e=>{const v=+e.target.value;TR.tol=isFinite(v)&&v>=0?v:null;draw()};
+$('trAuto').onclick=()=>{TR.tol=null;draw()};
+$('trShow').onchange=e=>{TR.show=e.target.checked;draw()};
+document.querySelectorAll('.tsSer').forEach(cb=>cb.onchange=e=>{TSV[e.target.dataset.k]=e.target.checked;drawTS()});
+$('tsMaxAx').onchange=e=>{TSMAXAX=e.target.checked;drawTS()};
+$('trCrit').onchange=e=>{TR.crit=e.target.value;$('trDriftF').style.display=TR.crit==='drift'?'':'none';draw()};
+$('trDrift').onchange=e=>{const v=+e.target.value;TR.drift=isFinite(v)&&v>=0?v:0.01;draw()};
+function thrBasisLabel(){const c=eC();return c==='x'?'|dx|':c==='y'?'|dy|':'|v|';}
+// slider range: 0 .. 1.5 x the 99th percentile of the current basis (number box accepts any value)
+function syncThr(){const md=modeData(st.mode), c=eC(), p=c==='x'?md.p99x:c==='y'?md.p99y:md.p99;
+  const sl=$('thr'); sl.max=(p*1.5).toPrecision(3); sl.step=(p/1000).toPrecision(2); sl.value=Math.min(st.thr,+sl.max);
+  $('thrBasis').textContent=thrBasisLabel();}
+function setThr(v){v=+v; st.thr=isFinite(v)&&v>0?+v.toPrecision(4):0; $('thrNum').value=st.thr; $('thr').value=Math.min(st.thr,+$('thr').max); draw();}
+$('thr').oninput=e=>setThr(e.target.value);
+$('thrNum').onchange=e=>setThr(e.target.value);
+$('thrOff').onclick=()=>setThr(0);
+$('thrBelow').onchange=e=>{st.thrBelow=e.target.value;draw()};
+$('thrStretch').onchange=e=>{st.thrStretch=e.target.checked;draw()};
+$('scale').oninput=e=>{st.scale=+e.target.value;$('scaleVal').textContent=st.scale.toFixed(2)+'×';draw()};
+$('cmax').oninput=e=>{st.cmax=+e.target.value;$('cmaxVal').textContent=st.cmax.toFixed(2)+'×';draw()};
+$('trail').onchange=e=>{st.trail=e.target.checked;draw()};
+function znLabels(){$('znRv').textContent=ZN.r.toFixed(1)+' die pitch ('+(ZN.r*pitch/1000).toFixed(1)+' mm)';$('znFv').textContent=Math.round(ZN.f*100)+'%';$('znAv').textContent=ZN.a+'°';$('znLv').textContent=Math.round(ZN.l*100)+'% of p95';$('znNv').textContent=ZN.nmin;$('znOv').textContent=ZN.oct+(ZN.oct<=4?' (also line-shaped convergence)':'');}
+$('znOn').onchange=e=>{ZN.on=e.target.checked;$('znCtl').style.display=ZN.on?'':'none';draw()};
+$('znSrc').onchange=e=>{ZN.src=e.target.checked;draw()};
+[['znR','r'],['znF','f'],['znA','a'],['znL','l'],['znN','nmin'],['znO','oct']].forEach(([id,k])=>$(id).oninput=e=>{ZN[k]=+e.target.value;znLabels();draw()});
+znLabels();
+$('znK').onchange=e=>{ZN.pk=Math.max(1,+e.target.value||1);e.target.value=ZN.pk;draw()}; $('znW').onchange=e=>{ZN.pw=Math.max(1,+e.target.value||1);e.target.value=ZN.pw;draw()};
+$('trailN').onchange=e=>{st.trailN=Math.max(2,+e.target.value||10);draw()};
+$('speed').oninput=e=>{st.speed=+e.target.value;$('spdVal').textContent=st.speed};
+$('scaleVal').textContent=st.scale.toFixed(2)+'×';$('cmaxVal').textContent=st.cmax.toFixed(2)+'×';$('mode').value=st.mode;$('scale').value=st.scale;$('cmax').value=st.cmax;$('spdVal').textContent=st.speed;
+let timer=null;
+function togglePlay(){st.playing=!st.playing;$('play').textContent=st.playing?'❚❚ Pause':'▶ Play';if($('mgPlay'))$('mgPlay').textContent=st.playing?'❚❚ Pause':'▶ Play';
+  if(st.playing){ if(st.t>=T-1) setT(0); let last=performance.now();
+    const loop=now=>{ if(!st.playing)return; if(now-last>=1000/st.speed){last=now; if(st.t>=T-1){togglePlay();return;} setT(st.t+1);} timer=requestAnimationFrame(loop);};
+    timer=requestAnimationFrame(loop);} else cancelAnimationFrame(timer);}
+$('play').onclick=togglePlay;
+document.addEventListener('keydown',e=>{if((curTab==='mgmt'&&!MG.slider)||e.target.tagName==='TEXTAREA'||(e.target.tagName==='INPUT'&&(e.target.type==='number'||e.target.type==='text')))return;
+  if(e.key==='ArrowRight'){setT(st.t+1);e.preventDefault()} else if(e.key==='ArrowLeft'){setT(st.t-1);e.preventDefault()} else if(e.key===' '){togglePlay();e.preventDefault()}});
+window.addEventListener('resize',resize);
+// ================= Management view =================
+const MG={cards:true,summary:true,map:true,trend:true,band:false,scaninfo:true,note:false,slider:true,mmcards:true,mmchart:true,bigmap:true};
+try{const sv=JSON.parse(localStorage.getItem('qmMgmt')||'null'); if(sv){Object.assign(MG,sv.MG||{}); ['mTitle','mSub','mUnit','mNote'].forEach(k=>{if(sv[k]!=null)$(k).value=sv[k];});}}catch(e){}
+document.querySelectorAll('#mgmtCfg [data-m]').forEach(cb=>{cb.checked=!!MG[cb.dataset.m]; cb.onchange=e=>{MG[e.target.dataset.m]=e.target.checked;saveMg();}});
+['mTitle','mSub','mUnit','mNote'].forEach(k=>$(k).addEventListener('input',saveMg));
+function saveMg(){try{localStorage.setItem('qmMgmt',JSON.stringify({MG,mTitle:$('mTitle').value,mSub:$('mSub').value,mUnit:$('mUnit').value,mNote:$('mNote').value}));}catch(e){}}
+let curTab='eng';
+function setTab(t){curTab=t; $('engView').style.display=t==='eng'?'':'none'; $('mgmtView').style.display=t==='mgmt'?'':'none';
+  $('tabEng').classList.toggle('active',t==='eng'); $('tabMgmt').classList.toggle('active',t==='mgmt'); $('mPrint').style.display=t==='mgmt'?'':'none';
+  if(st.playing) togglePlay(); if(t==='mgmt') renderMgmt(); else resize();}
+$('tabEng').onclick=()=>setTab('eng'); $('tabMgmt').onclick=()=>setTab('mgmt'); $('mGo').onclick=()=>{setTab('mgmt');window.scrollTo(0,0);};
+$('mPrint').onclick=()=>window.print();
+$('mgSlider').addEventListener('input',e=>setT(+e.target.value));
+$('mgPlay').onclick=togglePlay; $('mgPrev').onclick=()=>setT(st.t-1); $('mgNext').onclick=()=>setT(st.t+1);
+$('mgFirst').onclick=()=>setT(0); $('mgLast').onclick=()=>setT(T-1);
+const esc=t=>String(t).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+function fmtV(v,d=3){const u=$('mUnit').value.trim(); return (Math.abs(v)<5*Math.pow(10,-d-1)?0:v).toFixed(d)+(u?' '+u:'');}
+const SERNAME={mean:'Average shift (all dies)',sx:'Spread in X (std)',sy:'Spread in Y (std)',max:'Largest single-die shift'};
+const MODENAME={abs:'die shift',ref:'change since first scan',prev:'change from previous scan',mean:'deviation from each die\'s average'};
+function mgStatus(md){
+  const tr=trendCalc(md), arr=tr.arr, t=st.t, N=T;
+  const first=arr.slice(0,Math.max(1,Math.min(5,Math.floor(N/4)))).filter(isFinite), v0=first.reduce((a,b)=>a+b,0)/(first.length||1);
+  const vNow=arr[t], pct=v0?100*(vNow-v0)/v0:0;
+  let state,cls,why;
+  if(T<tr.N+2){state='Too few scans';cls='';why=`Only ${T} scan${T>1?'s':''} in this data set, so stability over time cannot be judged (the rule needs at least ${tr.N+2}). Shown: the change between scans.`;}
+  else if(tr.settled<0){state='Not stable';cls='r';why=`The value did not stay within ±${fmtV(tr.tol)} for ${tr.N} consecutive scans up to the end of the data.`;}
+  else if(tr.post&&Math.abs(tr.post.delta)>tr.tol){state='Slow drift';cls='a';why=`Short-term variation is within ±${fmtV(tr.tol)}, but the value keeps moving slowly (${tr.post.delta>=0?'+':''}${fmtV(tr.post.delta)} after settling).`;}
+  else {state='Stable';cls='g';why=`Stays within ±${fmtV(tr.tol)} from scan ${tr.settled+1} to the end of the data.`;}
+  return {tr,arr,v0,vNow,pct,state,cls,why};
+}
+function renderMgmt(){
+  const md=modeData(st.mode), S=mgStatus(md), tr=S.tr, t=st.t, ser=SERNAME[TR.ser];
+  $('mgTime').style.display=MG.slider?'':'none';
+  if(MG.slider){$('mgSlider').max=T-1; $('mgSlider').value=t;
+    const stab=tr.settled>=0&&t>=tr.settled;
+    $('mgLbl').innerHTML=`${esc(fmtDur(TMIN[t]))} after start <small>scan ${t+1} of ${T} · ${esc(D.times[t])}${tr.settled>=0?(stab?' · <span style="color:#127a57">in stable period</span>':' · <span style="color:#b26b00">before stabilising</span>'):''}</small>`;
+    $('mgPlay').textContent=st.playing?'❚❚ Pause':'▶ Play';}
+  $('mgTitle').textContent=$('mTitle').value||'Wafer shift stability';
+  const sub=[$('mSub').value.trim()];
+  if(MG.scaninfo) sub.push(`${T} scans, ${D.times[0]} to ${D.times[T-1]} (${fmtDur(TMIN[T-1])})`+(t!==T-1?` · showing scan ${t+1} (${D.times[t]})`:' · showing last scan'));
+  $('mgSub').textContent=sub.filter(Boolean).join(' · ');
+  // cards
+  $('mgCards').style.display=MG.cards?'':'none';
+  if(MG.cards){
+    const settled=tr.settled>=0;
+    const at=t===T-1?'at end':'at scan '+(t+1), MS=md.series, im=MS.imax[t];
+    const cards=[
+      [S.cls,S.state,'Status ('+ser.toLowerCase()+')'],
+      ...(T<tr.N+2?[]:[[settled?'g':'r',settled?(tr.settled===0?'From start':fmtDur(TMIN[tr.settled])):'-',settled?(tr.settled===0?'Already stable at the first scan':`Time to stabilise (scan ${tr.settled+1} of ${T})`):'Did not stabilise in this data']]),
+      ...(MG.mmcards?[['b',fmtV(MS.mean[t]),`Average shift, all dies (${at})`],['p',fmtV(MS.max[t]),`Largest shift, single die (${at})`+(im>=0?` · x ${(xs[im]/1000).toFixed(1)} mm, y ${(ys[im]/1000).toFixed(1)} mm`:'')]]:[]),
+      ...(!MG.mmcards||(TR.ser!=='mean'&&TR.ser!=='max')?[['',fmtV(S.vNow),`${ser} ${at}`]]:[]),
+      (st.mode==='ref'||st.mode==='prev')?['',(S.vNow-S.v0>=0?'+':'')+fmtV(S.vNow-S.v0),'Change vs start of run']:[Math.abs(S.pct)>10?'a':'',(Math.abs(S.pct)<0.5?'0':(S.pct>0?'+':'')+S.pct.toFixed(0))+'%','Change vs start of run'],
+    ];
+    if(tr.post) cards.push([Math.abs(tr.post.delta)>tr.tol?'a':'g',(tr.post.perH>=0?'+':'')+fmtV(tr.post.perH)+'/h','Remaining drift after stabilising']);
+    $('mgCards').innerHTML=cards.map(([c,b,sp])=>`<div class="mcard ${c}"><b>${esc(b)}</b><span>${esc(sp)}</span></div>`).join('');
+  }
+  // summary
+  $('mgSum').style.display=MG.summary?'':'none';
+  if(MG.summary){
+    const lines=[];
+    lines.push(`<b>${esc(S.state)}.</b> ${esc(S.why)}`);
+    if(T<tr.N+2){} else if(tr.settled>0) lines.push(`The ${esc(ser.toLowerCase())} reached a stable level after <b>${esc(fmtDur(TMIN[tr.settled]))}</b> (scan ${tr.settled+1} of ${T}).`); else if(tr.settled===0) lines.push(`The ${esc(ser.toLowerCase())} was already stable from the first scan.`);
+    lines.push(`Over the whole run it went from ${esc(fmtV(S.v0))} to ${esc(fmtV(S.arr[T-1]))}`+((st.mode==='ref'||st.mode==='prev')?'.':` (${Math.abs(S.pct)<0.5?'0':(S.pct>0?'+':'')+S.pct.toFixed(0)}% at the scan shown).`));
+    if(T>=tr.N+2) lines.push(`<span style="color:var(--mute);font-size:13px">Stability rule: ${TR.crit==='hold'?'every later value':'each window of '+tr.N+' consecutive scans'} within ±${esc(fmtV(tr.tol))}${TR.crit==='drift'?` and drift below ${esc(fmtV(TR.drift))}/h`:''}.</span>`);
+    $('mgSum').innerHTML=lines.join(' ');
+  }
+  // layout of map / trend
+  $('mgMapBox').style.display=MG.map?'':'none'; $('mgTrBox').style.display=MG.trend?'':'none';
+  $('mgRow').style.display=(MG.map||MG.trend)?'':'none'; $('mgRow').classList.toggle('one',!(MG.map&&MG.trend)||MG.bigmap);
+  $('mgNote').style.display=MG.note&&$('mNote').value.trim()?'':'none'; $('mgNote').textContent=$('mNote').value;
+  const dpr=window.devicePixelRatio||1;
+  if(MG.map&&$('mgMap').parentElement.clientWidth>200){
+    const c=$('mgMap'), w=c.parentElement.clientWidth-24, h=MG.bigmap?Math.max(420,Math.min(w*0.8,window.innerHeight-90)):Math.max(220,Math.min(w*0.92,window.innerHeight*0.62));
+    c.style.height=h+'px'; c.width=w*dpr; c.height=h*dpr; const ctx=c.getContext('2d'); ctx.setTransform(dpr,0,0,dpr,0,0);
+    const saveC=mctx, saveL=L; mctx=ctx;
+    const cbW=70,pad=pitch,plotW=w-cbW-20,plotH=h-20,s2=Math.min(plotW/(xmax-xmin+2*pad),plotH/(ymax-ymin+2*pad));
+    L={w,h,s:s2,ox:10+(plotW-(xmax-xmin+2*pad)*s2)/2,oy:10+(plotH-(ymax-ymin+2*pad)*s2)/2,pad,cbX:w-cbW+8,tw:saveL.tw};
+    try{ ctx.clearRect(0,0,w,h); if(st.view==='3d') draw3D(md); else draw2D(md); drawColourbar(md); } finally { mctx=saveC; L=saveL; }
+    $('mgMapH').textContent=`Wafer map - ${MODENAME[st.mode]}`+(st.view==='3d'?' (3D)':'');
+    const cl={mag:'Colour = size of the shift (scale on the right).',dir:'Colour = direction of the shift (colour wheel on the right).',
+      x:'Colour = left/right component (blue = left, red = right).',y:'Colour = down/up component (blue = down, red = up).',
+      ud:st.udAxis==='y'?'Colour = direction: one colour for dies moving up, the other for dies moving down (see scale on the right).':'Colour = direction: one colour for dies moving right, the other for dies moving left.'}[st.cmode];
+    const hgt=eC()==='y'?'height = up/down component of the shift (above the base plane = up)':eC()==='x'?'height = left/right component (above = right)':'height = size of the shift';
+    const leg=[st.view==='3d'?`Each tile = one die; ${hgt}.`:'Each arrow = one die; arrow length shows how far it moved (enlarged for visibility; reference arrow bottom-left).',cl];
+    if(st.view!=='3d') leg.push('Red circle = die with the largest shift in this scan.');
+    if(st.view!=='3d'&&ZN.on) leg.push(`Pink circles = areas where at least ${Math.round(ZN.f*100)}% of the surrounding arrows point inward`+(ZN.src?'; dashed teal circles = areas they point away from':'')+'.');
+    if(thrActive()) leg.push(`Only dies with shift ≥ ${fmtV(st.thr)} are highlighted.`);
+    $('mgMapLeg').textContent=leg.join(' ');
+  }
+  if(MG.trend&&$('mgTr').parentElement.clientWidth>200){
+    const c=$('mgTr'), w=c.parentElement.clientWidth-24, h=MG.map&&!MG.bigmap?Math.min(w*0.75,window.innerHeight*0.5):Math.max(260,Math.min(360,window.innerHeight*0.4));
+    c.style.height=h+'px'; c.width=w*dpr; c.height=h*dpr; const ctx=c.getContext('2d'); ctx.setTransform(dpr,0,0,dpr,0,0);
+    drawMgTrend(ctx,w,h,S);
+    const LN=mgLines(), NM={mean:'average shift',max:'largest shift',sx:'spread X',sy:'spread Y'};
+    $('mgTrH').textContent=LN.keys.length>1?'Average and largest shift over time':`${ser} over time`;
+    $('mgTrLeg').innerHTML=(LN.keys.length>1?LN.keys.map(k=>`<span style="color:${{mean:'#2f6fed',max:'#7b4fd6',sx:'#e8743b',sy:'#19a979'}[k]};font-weight:600">━ ${NM[k]}</span>`+(LN.axis(k)==='R'?' (right axis)':'')).join(' &nbsp; ')+'<br>':'')+(tr.settled>=0?`Green area = stable period of the ${esc(NM[TR.ser])}. `:'')+(MG.band&&tr.settled>=0?'Shaded band = allowed tolerance. ':'')+'Vertical line = scan shown on the map.'+(T<=10?' Dots = measured scans; the dotted line between them is not measured.':'');
+  }
+}
+function mgLines(){ // which series the management chart draws, and on which axis
+  const keys=[TR.ser]; if(MG.mmchart){if(!keys.includes('mean'))keys.push('mean'); if(!keys.includes('max'))keys.push('max');}
+  const right=false; // one shared zero-based axis: 'largest' is always drawn above 'average', no dual-axis misreading
+  return {keys,axis:k=>'L',right};}
+function drawMgTrend(ctx,W,H,S){
+  const md=modeData(st.mode), SR=md.series, LN=mgLines(), arr=S.arr, tr=S.tr, pl=58, pr=LN.right?58:14, pt=24, pb=34;
+  const rng=keys=>{let f=[];keys.forEach(k=>f=f.concat(SR[k].filter(isFinite)));const hi=Math.max(...f);return [0,(hi>0?hi:1)*1.15];}; // zero-based on purpose: avoids exaggerating noise
+  const [lo,hi]=rng(LN.keys.filter(k=>LN.axis(k)==='L')), [lo2,hi2]=LN.right?rng(['max']):[0,1];
+  const X=t=>pl+(W-pl-pr)*(T>1?TMIN[t]/TMIN[T-1]:0), YL=v=>pt+(H-pt-pb)*(1-(v-lo)/(hi-lo)), YR=v=>pt+(H-pt-pb)*(1-(v-lo2)/(hi2-lo2));
+  const Yk=k=>LN.axis(k)==='R'?YR:YL, Y=Yk(TR.ser);
+  ctx.clearRect(0,0,W,H); ctx.font='12px system-ui';
+  for(let q=0;q<=4;q++){const v=lo+(hi-lo)*q/4,y=YL(v);ctx.strokeStyle='#eef0f4';ctx.lineWidth=1;ctx.beginPath();ctx.moveTo(pl,y);ctx.lineTo(W-pr,y);ctx.stroke();ctx.fillStyle=LN.right?'#2f6fed':'#6b7383';ctx.fillText(v.toFixed(3),6,y+4);
+    if(LN.right){const v2=lo2+(hi2-lo2)*q/4;ctx.fillStyle='#7b4fd6';ctx.fillText(v2.toFixed(3),W-pr+6,YR(v2)+4);}}
+  const totH=TMIN[T-1]/60, stepH=totH>6?2:totH>2.5?1:0.5;
+  for(let hh=0;hh<=totH+1e-6;hh+=stepH){const x=pl+(W-pl-pr)*(hh*60/TMIN[T-1]);ctx.fillStyle='#6b7383';ctx.fillText(hh===0?'start':`${hh}h`,x-10,H-12);}
+  const u=$('mUnit').value.trim(); if(u){ctx.fillStyle='#6b7383';ctx.fillText(`[${u}]`,6,12);}
+  if(tr.settled>=0){ctx.fillStyle='rgba(25,169,121,.10)';ctx.fillRect(X(tr.settled),pt,W-pr-X(tr.settled),H-pt-pb);
+    ctx.strokeStyle='#19a979';ctx.setLineDash([5,4]);ctx.lineWidth=1.5;ctx.beginPath();ctx.moveTo(X(tr.settled),pt);ctx.lineTo(X(tr.settled),H-pb);ctx.stroke();ctx.setLineDash([]);
+    ctx.fillStyle='#127a57';ctx.font='bold 12px system-ui';ctx.fillText(tr.settled===0?'stable from start':`stable after ${fmtDur(TMIN[tr.settled])}`,Math.min(X(tr.settled)+6,W-pr-130),pt+14);ctx.font='12px system-ui';
+    if(MG.band){let m=0,k=0;for(let u2=tr.settled;u2<T;u2++){if(isFinite(arr[u2])){m+=arr[u2];k++;}}m/=k||1;ctx.fillStyle='rgba(25,169,121,.18)';ctx.fillRect(X(tr.settled),Y(m+tr.tol),W-pr-X(tr.settled),Y(m-tr.tol)-Y(m+tr.tol));}}
+  const COL={mean:'#2f6fed',max:'#7b4fd6',sx:'#e8743b',sy:'#19a979'};
+  LN.keys.slice().reverse().forEach(k=>{const Yf=Yk(k);ctx.strokeStyle=COL[k];ctx.lineWidth=k===TR.ser?2.4:1.8;ctx.setLineDash(k==='max'&&LN.right?[6,3]:[]);
+    if(T<=10) ctx.setLineDash([3,4]); // few scans: dotted connector, the path between measurements is not measured
+    ctx.beginPath();SR[k].forEach((v,t)=>{if(!isFinite(v))return;t?ctx.lineTo(X(t),Yf(v)):ctx.moveTo(X(t),Yf(v))});ctx.stroke();ctx.setLineDash([]);
+    if(T<=10){ctx.fillStyle=COL[k];SR[k].forEach((v,t)=>{if(isFinite(v)){ctx.beginPath();ctx.arc(X(t),Yf(v),5,0,7);ctx.fill();}});}});
+  ctx.strokeStyle='#1d2330';ctx.lineWidth=1.2;ctx.beginPath();ctx.moveTo(X(st.t),pt);ctx.lineTo(X(st.t),H-pb);ctx.stroke();
+  // dots + value labels; labels pushed apart vertically so close lines stay readable
+  const labs=LN.keys.map(k=>({k,v:SR[k][st.t]})).filter(o=>isFinite(o.v)).map(o=>({...o,y:Yk(o.k)(o.v)})).sort((a,b)=>a.y-b.y);
+  labs.forEach(o=>{ctx.fillStyle=COL[o.k];ctx.beginPath();ctx.arc(X(st.t),o.y,4.5,0,7);ctx.fill();});
+  for(let i=1;i<labs.length;i++) labs[i].ly=Math.max(labs[i].y,(labs[i-1].ly??labs[i-1].y)+15); if(labs.length) labs[0].ly=labs[0].y;
+  ctx.font='bold 12px system-ui';
+  labs.forEach(o=>{const lbl=o.v.toFixed(3), w=ctx.measureText(lbl).width, tx=X(st.t)+8+w>W-pr?X(st.t)-10-w:X(st.t)+8;
+    ctx.fillStyle='rgba(255,255,255,.85)';ctx.fillRect(tx-2,o.ly-11,w+4,15);ctx.fillStyle=COL[o.k];ctx.fillText(lbl,tx,o.ly+1);});
+  ctx.font='12px system-ui';
+}
+window.addEventListener('resize',()=>{if(curTab==='mgmt') renderMgmt();});
+syncThr();
+resize();
+</script>
+</body>
+</html>
