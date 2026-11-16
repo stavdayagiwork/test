@@ -63,6 +63,7 @@
   #mgmt .mcard{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:14px 16px;border-top:5px solid var(--line)}
   #mgmt .mcard b{display:block;font-size:24px;font-variant-numeric:tabular-nums;margin-bottom:2px}
   #mgmt .mcard span{color:var(--mute);font-size:13px}
+  #mgmt .mcard.b{border-top-color:#2f6fed} #mgmt .mcard.p{border-top-color:#7b4fd6}
   #mgmt .mcard.g{border-top-color:#19a979} #mgmt .mcard.a{border-top-color:#e8a33b} #mgmt .mcard.r{border-top-color:#d0342c}
   #mgmt .msum{background:var(--panel);border:1px solid var(--line);border-left:5px solid var(--acc);border-radius:8px;padding:12px 16px;font-size:15px;line-height:1.55;margin-bottom:14px}
   #mgmt .mrow{display:grid;grid-template-columns:minmax(0,1.15fr) minmax(0,1fr);gap:14px}
@@ -237,6 +238,8 @@
       <label><input type="checkbox" data-m="map" checked> Wafer map</label>
       <label><input type="checkbox" data-m="trend" checked> Trend chart</label>
       <label><input type="checkbox" data-m="band"> Tolerance band on chart</label>
+      <label><input type="checkbox" data-m="mmcards" checked> Average &amp; largest value cards</label>
+      <label><input type="checkbox" data-m="mmchart" checked> Average &amp; largest lines in chart</label>
       <label><input type="checkbox" data-m="slider" checked> Time slider + Play</label>
       <label><input type="checkbox" data-m="scaninfo" checked> Scan / date line</label>
       <label><input type="checkbox" data-m="note"> Presenter note</label>
@@ -748,7 +751,7 @@ document.addEventListener('keydown',e=>{if((curTab==='mgmt'&&!MG.slider)||e.targ
   if(e.key==='ArrowRight'){setT(st.t+1);e.preventDefault()} else if(e.key==='ArrowLeft'){setT(st.t-1);e.preventDefault()} else if(e.key===' '){togglePlay();e.preventDefault()}});
 window.addEventListener('resize',resize);
 // ================= Management view =================
-const MG={cards:true,summary:true,map:true,trend:true,band:false,scaninfo:true,note:false,slider:true};
+const MG={cards:true,summary:true,map:true,trend:true,band:false,scaninfo:true,note:false,slider:true,mmcards:true,mmchart:true};
 try{const sv=JSON.parse(localStorage.getItem('qmMgmt')||'null'); if(sv){Object.assign(MG,sv.MG||{}); ['mTitle','mSub','mUnit','mNote'].forEach(k=>{if(sv[k]!=null)$(k).value=sv[k];});}}catch(e){}
 document.querySelectorAll('#mgmtCfg [data-m]').forEach(cb=>{cb.checked=!!MG[cb.dataset.m]; cb.onchange=e=>{MG[e.target.dataset.m]=e.target.checked;saveMg();}});
 ['mTitle','mSub','mUnit','mNote'].forEach(k=>$(k).addEventListener('input',saveMg));
@@ -791,11 +794,13 @@ function renderMgmt(){
   $('mgCards').style.display=MG.cards?'':'none';
   if(MG.cards){
     const settled=tr.settled>=0;
+    const at=t===T-1?'at end':'at scan '+(t+1), MS=md.series, im=MS.imax[t];
     const cards=[
       [S.cls,S.state,'Status ('+ser.toLowerCase()+')'],
-      [settled?'g':'r',settled?fmtDur(TMIN[tr.settled]):'-',settled?`Time to stabilise (scan ${tr.settled+1} of ${T})`:'Did not stabilise in this data'],
-      ['',fmtV(S.vNow),`${ser} at ${t===T-1?'end':'scan '+(t+1)}`],
-      (st.mode==='ref'||st.mode==='prev')?['',(S.vNow-S.v0>=0?'+':'')+fmtV(S.vNow-S.v0),'Change vs start of run']:[Math.abs(S.pct)>10?'a':'',(S.pct>=0?'+':'')+S.pct.toFixed(0)+'%','Change vs start of run'],
+      [settled?'g':'r',settled?(tr.settled===0?'From start':fmtDur(TMIN[tr.settled])):'-',settled?(tr.settled===0?'Already stable at the first scan':`Time to stabilise (scan ${tr.settled+1} of ${T})`):'Did not stabilise in this data'],
+      ...(MG.mmcards?[['b',fmtV(MS.mean[t]),`Average shift, all dies (${at})`],['p',fmtV(MS.max[t]),`Largest shift, single die (${at})`+(im>=0?` · x ${(xs[im]/1000).toFixed(1)} mm, y ${(ys[im]/1000).toFixed(1)} mm`:'')]]:[]),
+      ...(!MG.mmcards||(TR.ser!=='mean'&&TR.ser!=='max')?[['',fmtV(S.vNow),`${ser} ${at}`]]:[]),
+      (st.mode==='ref'||st.mode==='prev')?['',(S.vNow-S.v0>=0?'+':'')+fmtV(S.vNow-S.v0),'Change vs start of run']:[Math.abs(S.pct)>10?'a':'',(Math.abs(S.pct)<0.5?'0':(S.pct>0?'+':'')+S.pct.toFixed(0))+'%','Change vs start of run'],
     ];
     if(tr.post) cards.push([Math.abs(tr.post.delta)>tr.tol?'a':'g',(tr.post.perH>=0?'+':'')+fmtV(tr.post.perH)+'/h','Remaining drift after stabilising']);
     $('mgCards').innerHTML=cards.map(([c,b,sp])=>`<div class="mcard ${c}"><b>${esc(b)}</b><span>${esc(sp)}</span></div>`).join('');
@@ -805,8 +810,8 @@ function renderMgmt(){
   if(MG.summary){
     const lines=[];
     lines.push(`<b>${esc(S.state)}.</b> ${esc(S.why)}`);
-    if(tr.settled>=0) lines.push(`The ${esc(ser.toLowerCase())} reached a stable level after <b>${esc(fmtDur(TMIN[tr.settled]))}</b> (scan ${tr.settled+1} of ${T}).`);
-    lines.push(`Over the whole run it went from ${esc(fmtV(S.v0))} to ${esc(fmtV(S.arr[T-1]))}`+((st.mode==='ref'||st.mode==='prev')?'.':` (${S.pct>=0?'+':''}${S.pct.toFixed(0)}% at the scan shown).`));
+    if(tr.settled>0) lines.push(`The ${esc(ser.toLowerCase())} reached a stable level after <b>${esc(fmtDur(TMIN[tr.settled]))}</b> (scan ${tr.settled+1} of ${T}).`); else if(tr.settled===0) lines.push(`The ${esc(ser.toLowerCase())} was already stable from the first scan.`);
+    lines.push(`Over the whole run it went from ${esc(fmtV(S.v0))} to ${esc(fmtV(S.arr[T-1]))}`+((st.mode==='ref'||st.mode==='prev')?'.':` (${Math.abs(S.pct)<0.5?'0':(S.pct>0?'+':'')+S.pct.toFixed(0)}% at the scan shown).`));
     lines.push(`<span style="color:var(--mute);font-size:13px">Stability rule: ${TR.crit==='hold'?'every later value':'each window of '+tr.N+' consecutive scans'} within ±${esc(fmtV(tr.tol))}${TR.crit==='drift'?` and drift below ${esc(fmtV(TR.drift))}/h`:''}.</span>`);
     $('mgSum').innerHTML=lines.join(' ');
   }
@@ -836,26 +841,43 @@ function renderMgmt(){
     const c=$('mgTr'), w=c.parentElement.clientWidth-24, h=MG.map?Math.min(w*0.75,window.innerHeight*0.5):260;
     c.style.height=h+'px'; c.width=w*dpr; c.height=h*dpr; const ctx=c.getContext('2d'); ctx.setTransform(dpr,0,0,dpr,0,0);
     drawMgTrend(ctx,w,h,S);
-    $('mgTrH').textContent=`${ser} over time`;
-    $('mgTrLeg').textContent=(tr.settled>=0?'Green area = stable period. ':'')+(MG.band&&tr.settled>=0?'Shaded band = allowed tolerance. ':'')+'Vertical line = scan shown on the map.';
+    const LN=mgLines(), NM={mean:'average shift',max:'largest shift',sx:'spread X',sy:'spread Y'};
+    $('mgTrH').textContent=LN.keys.length>1?'Average and largest shift over time':`${ser} over time`;
+    $('mgTrLeg').innerHTML=(LN.keys.length>1?LN.keys.map(k=>`<span style="color:${{mean:'#2f6fed',max:'#7b4fd6',sx:'#e8743b',sy:'#19a979'}[k]};font-weight:600">━ ${NM[k]}</span>`+(LN.axis(k)==='R'?' (right axis)':'')).join(' &nbsp; ')+'<br>':'')+(tr.settled>=0?`Green area = stable period of the ${esc(NM[TR.ser])}. `:'')+(MG.band&&tr.settled>=0?'Shaded band = allowed tolerance. ':'')+'Vertical line = scan shown on the map.';
   }
 }
+function mgLines(){ // which series the management chart draws, and on which axis
+  const keys=[TR.ser]; if(MG.mmchart){if(!keys.includes('mean'))keys.push('mean'); if(!keys.includes('max'))keys.push('max');}
+  const right=false; // one shared zero-based axis: 'largest' is always drawn above 'average', no dual-axis misreading
+  return {keys,axis:k=>'L',right};}
 function drawMgTrend(ctx,W,H,S){
-  const arr=S.arr, tr=S.tr, pl=58, pr=14, pt=24, pb=34;
-  const fin=arr.filter(isFinite); let lo=Math.min(...fin), hi=Math.max(...fin); const padv=(hi-lo)*0.25||hi*0.1||1; lo=Math.max(0,lo-padv); hi=hi+padv;
-  const X=t=>pl+(W-pl-pr)*(T>1?TMIN[t]/TMIN[T-1]:0), Y=v=>pt+(H-pt-pb)*(1-(v-lo)/(hi-lo));
+  const md=modeData(st.mode), SR=md.series, LN=mgLines(), arr=S.arr, tr=S.tr, pl=58, pr=LN.right?58:14, pt=24, pb=34;
+  const rng=keys=>{let f=[];keys.forEach(k=>f=f.concat(SR[k].filter(isFinite)));const hi=Math.max(...f);return [0,(hi>0?hi:1)*1.15];}; // zero-based on purpose: avoids exaggerating noise
+  const [lo,hi]=rng(LN.keys.filter(k=>LN.axis(k)==='L')), [lo2,hi2]=LN.right?rng(['max']):[0,1];
+  const X=t=>pl+(W-pl-pr)*(T>1?TMIN[t]/TMIN[T-1]:0), YL=v=>pt+(H-pt-pb)*(1-(v-lo)/(hi-lo)), YR=v=>pt+(H-pt-pb)*(1-(v-lo2)/(hi2-lo2));
+  const Yk=k=>LN.axis(k)==='R'?YR:YL, Y=Yk(TR.ser);
   ctx.clearRect(0,0,W,H); ctx.font='12px system-ui';
-  for(let q=0;q<=4;q++){const v=lo+(hi-lo)*q/4,y=Y(v);ctx.strokeStyle='#eef0f4';ctx.lineWidth=1;ctx.beginPath();ctx.moveTo(pl,y);ctx.lineTo(W-pr,y);ctx.stroke();ctx.fillStyle='#6b7383';ctx.fillText(v.toFixed(3),6,y+4);}
+  for(let q=0;q<=4;q++){const v=lo+(hi-lo)*q/4,y=YL(v);ctx.strokeStyle='#eef0f4';ctx.lineWidth=1;ctx.beginPath();ctx.moveTo(pl,y);ctx.lineTo(W-pr,y);ctx.stroke();ctx.fillStyle=LN.right?'#2f6fed':'#6b7383';ctx.fillText(v.toFixed(3),6,y+4);
+    if(LN.right){const v2=lo2+(hi2-lo2)*q/4;ctx.fillStyle='#7b4fd6';ctx.fillText(v2.toFixed(3),W-pr+6,YR(v2)+4);}}
   const totH=TMIN[T-1]/60, stepH=totH>6?2:totH>2.5?1:0.5;
   for(let hh=0;hh<=totH+1e-6;hh+=stepH){const x=pl+(W-pl-pr)*(hh*60/TMIN[T-1]);ctx.fillStyle='#6b7383';ctx.fillText(hh===0?'start':`${hh}h`,x-10,H-12);}
   const u=$('mUnit').value.trim(); if(u){ctx.fillStyle='#6b7383';ctx.fillText(`[${u}]`,6,12);}
   if(tr.settled>=0){ctx.fillStyle='rgba(25,169,121,.10)';ctx.fillRect(X(tr.settled),pt,W-pr-X(tr.settled),H-pt-pb);
     ctx.strokeStyle='#19a979';ctx.setLineDash([5,4]);ctx.lineWidth=1.5;ctx.beginPath();ctx.moveTo(X(tr.settled),pt);ctx.lineTo(X(tr.settled),H-pb);ctx.stroke();ctx.setLineDash([]);
-    ctx.fillStyle='#127a57';ctx.font='bold 12px system-ui';ctx.fillText(`stable after ${fmtDur(TMIN[tr.settled])}`,Math.min(X(tr.settled)+6,W-pr-130),pt+14);ctx.font='12px system-ui';
+    ctx.fillStyle='#127a57';ctx.font='bold 12px system-ui';ctx.fillText(tr.settled===0?'stable from start':`stable after ${fmtDur(TMIN[tr.settled])}`,Math.min(X(tr.settled)+6,W-pr-130),pt+14);ctx.font='12px system-ui';
     if(MG.band){let m=0,k=0;for(let u2=tr.settled;u2<T;u2++){if(isFinite(arr[u2])){m+=arr[u2];k++;}}m/=k||1;ctx.fillStyle='rgba(25,169,121,.18)';ctx.fillRect(X(tr.settled),Y(m+tr.tol),W-pr-X(tr.settled),Y(m-tr.tol)-Y(m+tr.tol));}}
-  ctx.strokeStyle='#2f6fed';ctx.lineWidth=2.2;ctx.beginPath();arr.forEach((v,t)=>{if(!isFinite(v))return;t?ctx.lineTo(X(t),Y(v)):ctx.moveTo(X(t),Y(v))});ctx.stroke();
+  const COL={mean:'#2f6fed',max:'#7b4fd6',sx:'#e8743b',sy:'#19a979'};
+  LN.keys.slice().reverse().forEach(k=>{const Yf=Yk(k);ctx.strokeStyle=COL[k];ctx.lineWidth=k===TR.ser?2.4:1.8;ctx.setLineDash(k==='max'&&LN.right?[6,3]:[]);
+    ctx.beginPath();SR[k].forEach((v,t)=>{if(!isFinite(v))return;t?ctx.lineTo(X(t),Yf(v)):ctx.moveTo(X(t),Yf(v))});ctx.stroke();ctx.setLineDash([]);});
   ctx.strokeStyle='#1d2330';ctx.lineWidth=1.2;ctx.beginPath();ctx.moveTo(X(st.t),pt);ctx.lineTo(X(st.t),H-pb);ctx.stroke();
-  ctx.fillStyle='#1d2330';ctx.beginPath();ctx.arc(X(st.t),Y(arr[st.t]),4,0,7);ctx.fill();
+  // dots + value labels; labels pushed apart vertically so close lines stay readable
+  const labs=LN.keys.map(k=>({k,v:SR[k][st.t]})).filter(o=>isFinite(o.v)).map(o=>({...o,y:Yk(o.k)(o.v)})).sort((a,b)=>a.y-b.y);
+  labs.forEach(o=>{ctx.fillStyle=COL[o.k];ctx.beginPath();ctx.arc(X(st.t),o.y,4.5,0,7);ctx.fill();});
+  for(let i=1;i<labs.length;i++) labs[i].ly=Math.max(labs[i].y,(labs[i-1].ly??labs[i-1].y)+15); if(labs.length) labs[0].ly=labs[0].y;
+  ctx.font='bold 12px system-ui';
+  labs.forEach(o=>{const lbl=o.v.toFixed(3), w=ctx.measureText(lbl).width, tx=X(st.t)+8+w>W-pr?X(st.t)-10-w:X(st.t)+8;
+    ctx.fillStyle='rgba(255,255,255,.85)';ctx.fillRect(tx-2,o.ly-11,w+4,15);ctx.fillStyle=COL[o.k];ctx.fillText(lbl,tx,o.ly+1);});
+  ctx.font='12px system-ui';
 }
 window.addEventListener('resize',()=>{if(curTab==='mgmt') renderMgmt();});
 syncThr();
