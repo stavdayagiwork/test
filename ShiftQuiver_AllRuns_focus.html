@@ -201,11 +201,11 @@ function modeData(mode){
   if(cache[mode]) return cache[mode];
   const VX=new Float32Array(N*T), VY=new Float32Array(N*T), mags=[], ax=[], ay=[];
   for(let i=0;i<N;i++)for(let t=0;t<T;t++){const [a,b]=vec(mode,i,t);VX[i*T+t]=a;VY[i*T+t]=b;const m=Math.hypot(a,b);if(isFinite(m)){mags.push(m);ax.push(Math.abs(a));ay.push(Math.abs(b));}}
-  const series={mean:[],sx:[],sy:[],max:[],mx:[],my:[]};
-  for(let t=0;t<T;t++){let s=0,n=0,mx=0,sxa=0,sya=0,sxx=0,syy=0;
-    for(let i=0;i<N;i++){const a=VX[i*T+t],b=VY[i*T+t];if(isNaN(a)||isNaN(b))continue;const m=Math.hypot(a,b);s+=m;n++;mx=Math.max(mx,m);sxa+=a;sya+=b;sxx+=a*a;syy+=b*b;}
+  const series={mean:[],sx:[],sy:[],max:[],mx:[],my:[],imax:[]};
+  for(let t=0;t<T;t++){let s=0,n=0,mx=0,im=-1,sxa=0,sya=0,sxx=0,syy=0;
+    for(let i=0;i<N;i++){const a=VX[i*T+t],b=VY[i*T+t];if(isNaN(a)||isNaN(b))continue;const m=Math.hypot(a,b);s+=m;n++;if(m>mx){mx=m;im=i;}sxa+=a;sya+=b;sxx+=a*a;syy+=b*b;}
     const ma=sxa/n, mb=sya/n;
-    series.mean.push(s/n);series.max.push(mx);series.mx.push(ma);series.my.push(mb);
+    series.mean.push(s/n);series.max.push(mx);series.imax.push(im);series.mx.push(ma);series.my.push(mb);
     series.sx.push(Math.sqrt(Math.max(0,sxx/n-ma*ma)));series.sy.push(Math.sqrt(Math.max(0,syy/n-mb*mb)));}
   return cache[mode]={VX,VY,p95:pct(mags,.95),p99:pct(mags,.99),p99x:pct(ax,.99),p99y:pct(ay,.99),series};
 }
@@ -374,6 +374,8 @@ function draw2D(md){
     if(!passes(a,b)){ if(st.thrBelow==='hide') continue; arrow(ctx,X,Y,X+a*k,Y-b*k,DIM,Math.max(1,lw*0.6)); continue; }
     arrow(ctx,X,Y,X+a*k,Y-b*k,colourFor(md,a,b),lw);
   }
+  // ring around the worst die of this scan
+  {const im=md.series.imax[t]; if(im>=0&&st.view==='2d'){ctx.strokeStyle='#d0021b';ctx.lineWidth=1.5;ctx.beginPath();ctx.arc(sx(xs[im]),sy(ys[im]),Math.max(6,cell*0.6),0,7);ctx.stroke();}}
   // reference arrow
   const refV=niceNum(md.p95);
   ctx.fillStyle='#1d2330'; ctx.font='11px system-ui';
@@ -515,8 +517,11 @@ function updateStats(md){
   const S=md.series, t=st.t;
   $('runLabel').textContent=`Scan ${t+1}/${T} · run ${D.runs[t]} · ${D.times[t]}`;
   $('slider').value=t;
-  const cells=[['Mean |v|',S.mean[t]],['Max |v|',S.max[t]],['Mean X',S.mx[t]],['Mean Y',S.my[t]],['Std X',S.sx[t]],['Std Y',S.sy[t]]];
-  let html=cells.map(([n,v])=>`<div class="stat"><b>${(Math.abs(v)<5e-5?0:v).toFixed(4)}</b><span>${n}</span></div>`).join('');
+  const im=S.imax[t], vName={abs:'shift (X,Y)',ref:'change vs first scan',prev:'change vs previous scan',mean:'deviation from per-die mean'}[st.mode];
+  const cells=[['Mean |v| · average over all dies',S.mean[t]],['Max |v| · single worst die'+(im>=0?`<br>at x=${xs[im]}, y=${ys[im]}`:''),S.max[t]],
+    ['Mean X (signed)',S.mx[t]],['Mean Y (signed)',S.my[t]],['Std X across dies',S.sx[t]],['Std Y across dies',S.sy[t]]];
+  let html=`<div class="hint" style="grid-column:1/3">|v| = length of each die's vector, v = ${vName}. Mean and Max are two statistics of the same quantity.</div>`;
+  html+=cells.map(([n,v])=>`<div class="stat"><b>${(Math.abs(v)<5e-5?0:v).toFixed(4)}</b><span>${n}</span></div>`).join('');
   if(thrActive()){let n=0,v=0;for(let i=0;i<N;i++){const a=md.VX[i*T+t],b=md.VY[i*T+t];if(isNaN(a)||isNaN(b))continue;v++;if(passes(a,b))n++;}
     html+=`<div class="stat" style="grid-column:1/3"><b>${n} / ${v}</b><span>dies with ${thrBasisLabel()} ≥ ${st.thr} (${v?(100*n/v).toFixed(1):0}%)</span></div>`;}
   $('stats').innerHTML=html;
