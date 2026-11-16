@@ -181,6 +181,26 @@
       <div class="hint">Height = |v| (or signed X / Y, following the colour choice)</div>
     </div>
     <div class="ctl">
+      <label class="row" style="font-weight:600;margin-bottom:6px"><input type="checkbox" id="znOn"> Mark zones arrows point into (circles)</label>
+      <div id="znCtl" style="display:none;padding-left:4px">
+        <label class="row" style="font-weight:400"><input type="checkbox" id="znSrc"> Also mark zones arrows point out of</label>
+        <label style="font-weight:400;margin-top:4px">Search radius <span id="znRv"></span></label>
+        <input type="range" id="znR" min="1.5" max="8" step="0.5" value="2.5">
+        <label style="font-weight:400">Min share pointing in <span id="znFv"></span></label>
+        <input type="range" id="znF" min="0.5" max="1" step="0.05" value="0.75">
+        <label style="font-weight:400">Angle tolerance ± <span id="znAv"></span></label>
+        <input type="range" id="znA" min="20" max="80" step="5" value="45">
+        <label style="font-weight:400">Ignore arrows shorter than <span id="znLv"></span></label>
+        <input type="range" id="znL" min="0" max="0.6" step="0.05" value="0.2">
+        <label style="font-weight:400">Surround: inward arrows from ≥ <span id="znOv"></span> of 8 directions</label>
+        <input type="range" id="znO" min="3" max="8" step="1" value="6">
+        <label style="font-weight:400">Min arrows counted <span id="znNv"></span></label>
+        <input type="range" id="znN" min="6" max="40" step="1" value="12">
+        <label style="font-weight:400">Persistence: seen in ≥ <input type="number" id="znK" value="3" min="1" max="20" style="width:46px;display:inline-block"> of last <input type="number" id="znW" value="5" min="1" max="30" style="width:46px;display:inline-block"> scans</label>
+        <div class="hint">For each candidate point (every ½ die pitch), all arrows within the radius are tested. An arrow "points in" if its direction is within ± the angle tolerance of the direction to the point. A zone is marked when at least the chosen share of the counted arrows point in (default ¾; if more than ¼ point elsewhere it is rejected) and the inward arrows come from enough of the 8 directions around it (default 6; lower it to also catch convergence onto a line), so a one-sided flow is not counted. Short arrows (fraction of the 95th-percentile length) are noise and are not counted. Overlapping hits keep only the strongest. Persistence keeps only zones that recur at about the same place in recent scans (noise zones flicker). Label = share pointing in. Set persistence to 1 of 1 to see single-scan hits.</div>
+      </div>
+    </div>
+    <div class="ctl">
       <label class="row" style="font-weight:600"><input type="checkbox" id="trail"> Show tip trail (last <input type="number" id="trailN" value="10" min="2" max="60" style="width:52px;display:inline-block"> scans)</label>
     </div>
     <div class="ctl">
@@ -491,6 +511,7 @@ function draw2D(md){
     if(!passes(a,b)){ if(st.thrBelow==='hide') continue; arrow(ctx,X,Y,X+a*k,Y-b*k,DIM,Math.max(1,lw*0.6)); continue; }
     arrow(ctx,X,Y,X+a*k,Y-b*k,colourFor(md,a,b),lw);
   }
+  if(ZN.on) drawZones(ctx,md,t);
   // ring around the worst die of this scan
   {const im=md.series.imax[t]; if(im>=0&&st.view==='2d'){ctx.strokeStyle='#d0021b';ctx.lineWidth=1.5;ctx.beginPath();ctx.arc(sx(xs[im]),sy(ys[im]),Math.max(6,cell*0.6),0,7);ctx.stroke();}}
   // reference arrow
@@ -500,6 +521,55 @@ function draw2D(md){
   ctx.fillText(`${refV}`,18+refV*k,L.h-10);
   {const tags=[]; if(V.z!==1) tags.push(`zoom ${V.z.toFixed(1)}×`); if(thrActive()) tags.push(`focus ${thrBasisLabel()} ≥ ${st.thr}`);
    if(tags.length){ctx.fillStyle='#6b7383';ctx.fillText(tags.join(' · '),10,16);}}
+  ctx.restore();
+}
+// ---------- convergence / divergence zones ----------
+const ZN={on:false,src:false,r:2.5,f:0.75,a:45,l:0.2,nmin:12,pw:5,pk:3,oct:6}; const znCache={key:null,res:{}};
+function findZones(md,t){
+  const key=[st.mode,ZN.r,ZN.f,ZN.a,ZN.l,ZN.src,ZN.nmin,ZN.oct].join('|'); if(znCache.key!==key){znCache.key=key;znCache.res={};}
+  if(md.VX!==modeData(st.mode).VX) return rawZones(md,t); // synthetic/test fields bypass the cache
+  if(!znCache.res[t]) znCache.res[t]=rawZones(md,t); return znCache.res[t];
+}
+function rawZones(md,t){
+  const R=ZN.r*pitch, R2=R*R, rMin=0.35*pitch, cosT=Math.cos(ZN.a*Math.PI/180), minLen=ZN.l*md.p95, NR=Math.ceil(ZN.r)+1;
+  const cands=[];
+  for(let hy=0;hy<=2*(NGY-1);hy++)for(let hx=0;hx<=2*(NGX-1);hx++){
+    const cx=xmin+hx*pitch/2, cy=ymin+hy*pitch/2, gx0=Math.round(hx/2), gy0=Math.round(hy/2);
+    if(G[gy0*NGX+gx0]<0) continue; // centre must be on the wafer
+    let n=0,nin=0,nout=0,sin=0,sout=0,octIn=0,octOut=0;
+    for(let gy=gy0-NR;gy<=gy0+NR;gy++){if(gy<0||gy>=NGY)continue;
+      for(let gx=gx0-NR;gx<=gx0+NR;gx++){if(gx<0||gx>=NGX)continue; const i=G[gy*NGX+gx]; if(i<0)continue;
+        const dx=cx-xs[i], dy=cy-ys[i], d2=dx*dx+dy*dy; if(d2>R2||d2<rMin*rMin)continue;
+        const a=md.VX[i*T+t], b=md.VY[i*T+t]; if(!isFinite(a)||!isFinite(b))continue; const len=Math.hypot(a,b); if(len<minLen)continue;
+        const d=Math.sqrt(d2), c=(a*dx+b*dy)/(len*d); n++;
+        const oct=((Math.round(Math.atan2(-dy,-dx)/(Math.PI/4))%8)+8)%8; // direction of the die as seen from the centre
+        if(c>=cosT){nin++;sin+=c*len;octIn|=1<<oct;} else if(c<=-cosT){nout++;sout-=c*len;octOut|=1<<oct;}
+      }}
+    if(n<ZN.nmin) continue;
+    const bits=m=>{let k=0;for(;m;m&=m-1)k++;return k;};
+    if(nin/n>=ZN.f&&bits(octIn)>=ZN.oct) cands.push({x:cx,y:cy,type:'in',frac:nin/n,n,score:(nin/n)*sin/n});
+    if(ZN.src&&nout/n>=ZN.f&&bits(octOut)>=ZN.oct) cands.push({x:cx,y:cy,type:'out',frac:nout/n,n,score:(nout/n)*sout/n});
+  }
+  cands.sort((p,q)=>q.score-p.score); const res=[];
+  for(const c of cands){ if(res.some(r=>r.type===c.type&&Math.hypot(r.x-c.x,r.y-c.y)<R)) continue; res.push(c); }
+  return res;
+}
+// persistence: keep a zone only if a same-type zone lies within half the radius in >= pk of the last pw scans (incl. this one)
+function zonesAt(md,t){
+  const now=findZones(md,t); if(ZN.pw<=1||ZN.pk<=1) return now.map(z=>({...z,hits:1}));
+  const R=ZN.r*pitch, t0=Math.max(0,t-ZN.pw+1), win=t-t0+1, need=Math.min(ZN.pk,win);
+  const prev=[]; for(let u=t0;u<t;u++) prev.push(findZones(md,u));
+  return now.map(z=>({...z,hits:1+prev.filter(zs=>zs.some(q=>q.type===z.type&&Math.hypot(q.x-z.x,q.y-z.y)<=R/2)).length,win})).filter(z=>z.hits>=need);
+}
+function drawZones(ctx,md,t){
+  const zs=zonesAt(md,t), rp=ZN.r*pitch*L.s*V.z;
+  ctx.save(); ctx.font='bold 11px system-ui';
+  for(const z of zs){const X=sx(z.x),Y=sy(z.y), col=z.type==='in'?'#c2185b':'#00838f';
+    ctx.strokeStyle='rgba(255,255,255,.9)'; ctx.lineWidth=5; ctx.beginPath(); ctx.arc(X,Y,rp,0,7); ctx.stroke();
+    ctx.strokeStyle=col; ctx.lineWidth=2.5; ctx.setLineDash(z.type==='in'?[]:[7,4]); ctx.beginPath(); ctx.arc(X,Y,rp,0,7); ctx.stroke(); ctx.setLineDash([]);
+    ctx.fillStyle=col; ctx.beginPath(); ctx.arc(X,Y,3,0,7); ctx.fill();
+    const lbl=`${z.type==='in'?'→●':'●→'} ${Math.round(100*z.frac)}%`, w=ctx.measureText(lbl).width;
+    ctx.fillStyle='rgba(255,255,255,.85)'; ctx.fillRect(X-w/2-3,Y-rp-17,w+6,15); ctx.fillStyle=col; ctx.fillText(lbl,X-w/2,Y-rp-6);}
   ctx.restore();
 }
 function niceNum(v){const p=Math.pow(10,Math.floor(Math.log10(v)));const m=v/p;return +( (m<1.5?1:m<3.5?2:m<7.5?5:10)*p ).toPrecision(2);}
@@ -646,8 +716,11 @@ function updateStats(md){
   const im=S.imax[t], vName={abs:'shift (X,Y)',ref:'change vs first scan',prev:'change vs previous scan',mean:'deviation from per-die mean'}[st.mode];
   const cells=[['Mean |v| · average over all dies',S.mean[t]],['Max |v| · single worst die'+(im>=0?`<br>at x=${xs[im]}, y=${ys[im]}`:''),S.max[t]],
     ['Mean X (signed)',S.mx[t]],['Mean Y (signed)',S.my[t]],['Std X across dies',S.sx[t]],['Std Y across dies',S.sy[t]]];
+  let znHtml=''; if(ZN.on&&st.view==='2d'){const zs=zonesAt(md,t), ni=zs.filter(z=>z.type==='in').length, no=zs.filter(z=>z.type==='out').length;
+    znHtml=`<div class="stat" style="grid-column:1/3"><b style="color:#c2185b">${ni} in-zone${ni===1?'':'s'}${ZN.src?` · <span style="color:#00838f">${no} out-zone${no===1?'':'s'}</span>`:''}</b><span>${zs.slice(0,4).map(z=>`${z.type==='in'?'in':'out'} @ x ${(z.x/1000).toFixed(1)}, y ${(z.y/1000).toFixed(1)} mm (${Math.round(100*z.frac)}% of ${z.n}${ZN.pw>1?`, seen ${z.hits}/${z.win}`:''})`).join('<br>')||'no zone meets the rule in this scan'}</span></div>`;}
   let html=`<div class="hint" style="grid-column:1/3">|v| = length of each die's vector, v = ${vName}. Mean and Max are two statistics of the same quantity.</div>`;
   html+=cells.map(([n,v])=>`<div class="stat"><b>${(Math.abs(v)<5e-5?0:v).toFixed(4)}</b><span>${n}</span></div>`).join('');
+  html+=znHtml;
   if(thrActive()){let n=0,v=0;for(let i=0;i<N;i++){const a=md.VX[i*T+t],b=md.VY[i*T+t];if(isNaN(a)||isNaN(b))continue;v++;if(passes(a,b))n++;}
     html+=`<div class="stat" style="grid-column:1/3"><b>${n} / ${v}</b><span>dies with ${thrBasisLabel()} ≥ ${st.thr} (${v?(100*n/v).toFixed(1):0}%)</span></div>`;}
   $('stats').innerHTML=html;
@@ -738,6 +811,12 @@ $('thrStretch').onchange=e=>{st.thrStretch=e.target.checked;draw()};
 $('scale').oninput=e=>{st.scale=+e.target.value;$('scaleVal').textContent=st.scale.toFixed(2)+'×';draw()};
 $('cmax').oninput=e=>{st.cmax=+e.target.value;$('cmaxVal').textContent=st.cmax.toFixed(2)+'×';draw()};
 $('trail').onchange=e=>{st.trail=e.target.checked;draw()};
+function znLabels(){$('znRv').textContent=ZN.r.toFixed(1)+' die pitch ('+(ZN.r*pitch/1000).toFixed(1)+' mm)';$('znFv').textContent=Math.round(ZN.f*100)+'%';$('znAv').textContent=ZN.a+'°';$('znLv').textContent=Math.round(ZN.l*100)+'% of p95';$('znNv').textContent=ZN.nmin;$('znOv').textContent=ZN.oct+(ZN.oct<=4?' (also line-shaped convergence)':'');}
+$('znOn').onchange=e=>{ZN.on=e.target.checked;$('znCtl').style.display=ZN.on?'':'none';draw()};
+$('znSrc').onchange=e=>{ZN.src=e.target.checked;draw()};
+[['znR','r'],['znF','f'],['znA','a'],['znL','l'],['znN','nmin'],['znO','oct']].forEach(([id,k])=>$(id).oninput=e=>{ZN[k]=+e.target.value;znLabels();draw()});
+znLabels();
+$('znK').onchange=e=>{ZN.pk=Math.max(1,+e.target.value||1);e.target.value=ZN.pk;draw()}; $('znW').onchange=e=>{ZN.pw=Math.max(1,+e.target.value||1);e.target.value=ZN.pw;draw()};
 $('trailN').onchange=e=>{st.trailN=Math.max(2,+e.target.value||10);draw()};
 $('speed').oninput=e=>{st.speed=+e.target.value;$('spdVal').textContent=st.speed};
 $('scaleVal').textContent=st.scale.toFixed(2)+'×';$('cmaxVal').textContent=st.cmax.toFixed(2)+'×';$('mode').value=st.mode;$('scale').value=st.scale;$('cmax').value=st.cmax;$('spdVal').textContent=st.speed;
@@ -835,6 +914,7 @@ function renderMgmt(){
     const hgt=eC()==='y'?'height = up/down component of the shift (above the base plane = up)':eC()==='x'?'height = left/right component (above = right)':'height = size of the shift';
     const leg=[st.view==='3d'?`Each tile = one die; ${hgt}.`:'Each arrow = one die; arrow length shows how far it moved (enlarged for visibility; reference arrow bottom-left).',cl];
     if(st.view!=='3d') leg.push('Red circle = die with the largest shift in this scan.');
+    if(st.view!=='3d'&&ZN.on) leg.push(`Pink circles = areas where at least ${Math.round(ZN.f*100)}% of the surrounding arrows point inward`+(ZN.src?'; dashed teal circles = areas they point away from':'')+'.');
     if(thrActive()) leg.push(`Only dies with shift ≥ ${fmtV(st.thr)} are highlighted.`);
     $('mgMapLeg').textContent=leg.join(' ');
   }
