@@ -194,9 +194,17 @@
       <div class="hint">1× = 95th-percentile vector ≈ 0.9 die pitch</div>
     </div>
     <div class="ctl">
-      <label>Colour range max <span id="cmaxVal"></span></label>
-      <input type="range" id="cmax" min="0.2" max="2" step="0.05" value="0.7">
-      <div class="hint">1× = 99th percentile over all scans (fixed across time)</div>
+      <label>Colour range</label>
+      <select id="crange" style="margin-bottom:6px">
+        <option value="p99">99th percentile of all scans × factor (fixed in time)</option>
+        <option value="maxall">Maximum of all scans × factor (fixed in time)</option>
+        <option value="scan">Maximum of this scan × factor (changes per scan)</option>
+        <option value="manual">Manual value</option>
+      </select>
+      <div id="cfacBox"><label style="font-weight:400">Factor <span id="cmaxVal"></span> <span id="cmaxAbs" style="color:var(--mute)"></span></label>
+      <input type="range" id="cmax" min="0.2" max="2" step="0.05" value="0.7"></div>
+      <div id="cmanBox" style="display:none" class="row"><span>Top of scale</span><input type="number" id="cman" step="0.01" min="0" style="width:90px"></div>
+      <div class="hint">Arrows larger than the top of the scale are drawn in the top colour (saturated). The colour bar always shows the largest value in the scan and how many dies are above the scale.</div>
     </div>
     <div class="ctl" id="thrCtl">
       <label>Focus: show only <span id="thrBasis">|v|</span> &ge;</label>
@@ -341,8 +349,8 @@
 const D = JSON.parse(document.getElementById('data').textContent);
 const N = D.pts.length, T = D.runs.length;
 // ---- version (bump on every change to the page code)
-const APP_VERSION='2.3.0', APP_DATE='2026-11-17';
-const APP_HISTORY=['2.3.0  Export PNG (map with all overlays, optional info header and chart)','2.2.0  chuck registered top-up as in the tool (+90°), bottom drawn at true positions, whole-view rotation','2.1.0  chuck CAD overlay (top / bottom view, rotate, mirror, offset)','2.0.0  version label, data source / build stamp','1.9  larger map, Large map toggle','1.8  convergence / divergence zones','1.7  management view (cards, summary, slider, mean & max)','1.6  two-colour up/down arrows','1.5  trend slope, stability, Max series','1.4  focus threshold','1.0  2D/3D quiver map'];
+const APP_VERSION='2.4.0', APP_DATE='2026-11-17';
+const APP_HISTORY=['2.4.0  colour range basis (p99 / max all / scan max / manual); scan max and overflow shown on the colour bar','2.3.0  Export PNG (map with all overlays, optional info header and chart)','2.2.0  chuck registered top-up as in the tool (+90°), bottom drawn at true positions, whole-view rotation','2.1.0  chuck CAD overlay (top / bottom view, rotate, mirror, offset)','2.0.0  version label, data source / build stamp','1.9  larger map, Large map toggle','1.8  convergence / divergence zones','1.7  management view (cards, summary, slider, mean & max)','1.6  two-colour up/down arrows','1.5  trend slope, stability, Max series','1.4  focus threshold','1.0  2D/3D quiver map'];
 {const src=D.src?` · data: ${D.src}`:'', built=D.built?` · built ${D.built}`:'';
  const vi=document.getElementById('verInfo'); vi.textContent='v'+APP_VERSION;
  vi.title=`Quiver map v${APP_VERSION} (${APP_DATE})${src}${built}\n\nHistory:\n`+APP_HISTORY.join('\n');
@@ -382,7 +390,8 @@ function modeData(mode){
     const ma=sxa/n, mb=sya/n;
     series.mean.push(s/n);series.max.push(mx);series.imax.push(im);series.mx.push(ma);series.my.push(mb);
     series.sx.push(Math.sqrt(Math.max(0,sxx/n-ma*ma)));series.sy.push(Math.sqrt(Math.max(0,syy/n-mb*mb)));}
-  return cache[mode]={VX,VY,p95:pct(mags,.95),p99:pct(mags,.99),p99x:pct(ax,.99),p99y:pct(ay,.99),series};
+  const mx_=a=>a.reduce((m,v)=>v>m?v:m,0);
+  return cache[mode]={VX,VY,p95:pct(mags,.95),p99:pct(mags,.99),p99x:pct(ax,.99),p99y:pct(ay,.99),maxm:mx_(mags),maxx:mx_(ax),maxy:mx_(ay),series};
 }
 
 // ---- colour maps
@@ -399,7 +408,7 @@ function hsl(a){return `hsl(${((a*180/Math.PI)+360)%360},80%,45%)`;}
 
 // ---- state & UI
 const $=id=>document.getElementById(id);
-const st={view:'2d',mesh:false,t:0,mode:'ref',cmode:'mag',scale:1.1,cmax:0.7,playing:false,trail:false,trailN:10,speed:6,thr:0,thrBelow:'dim',thrStretch:true,udAxis:'y',udPos:'#e0301e',udNeg:'#1f5fd6',udNeu:'#9aa3b2',udDead:0,udShade:true};
+const st={crange:'p99',cman:0,view:'2d',mesh:false,t:0,mode:'ref',cmode:'mag',scale:1.1,cmax:0.7,playing:false,trail:false,trailN:10,speed:6,thr:0,thrBelow:'dim',thrStretch:true,udAxis:'y',udPos:'#e0301e',udNeg:'#1f5fd6',udNeu:'#9aa3b2',udDead:0,udShade:true};
 $('slider').max=T-1;
 
 const map=$('map'); let mctx=map.getContext('2d');
@@ -444,11 +453,11 @@ function nrm(v,vmax){const lo=cLo(vmax), hi=cHi(vmax), s=Math.sign(v)||1, n=Math
 const DIM='rgba(150,158,172,.35)';
 function colourFor(md,a,b){
   if(!passes(a,b)) return DIM;
-  if(st.cmode==='mag') return turbo(nrm(Math.hypot(a,b),md.p99*st.cmax));
+  if(st.cmode==='mag') return turbo(nrm(Math.hypot(a,b),vmaxFor(md,'mag')));
   if(st.cmode==='dir') return hsl(Math.atan2(b,a));
-  if(st.cmode==='ud') return st.udAxis==='x'?udColour(a,md.p99x*st.cmax):udColour(b,md.p99y*st.cmax);
-  if(st.cmode==='x') return diverg(nrm(a,md.p99x*st.cmax));
-  return diverg(nrm(b,md.p99y*st.cmax));
+  if(st.cmode==='ud') return st.udAxis==='x'?udColour(a,vmaxFor(md,'x')):udColour(b,vmaxFor(md,'y'));
+  if(st.cmode==='x') return diverg(nrm(a,vmaxFor(md,'x')));
+  return diverg(nrm(b,vmaxFor(md,'y')));
 }
 // two-colour mode: sign picks the colour; optional shading mixes toward white for small values
 function hex2rgb(h){const n=parseInt(h.slice(1),16);return [(n>>16)&255,(n>>8)&255,n&255];}
@@ -479,7 +488,12 @@ function draw(){
 // ---------- 3D surface / mesh ----------
 function heightOf(md,i,t){const a=md.VX[i*T+t], b=md.VY[i*T+t];
   const c=eC(); return c==='x'?a:c==='y'?b:Math.hypot(a,b);}
-function vmaxOf(md){const c=eC(); return (c==='x'?md.p99x:c==='y'?md.p99y:md.p99)*st.cmax;}
+function scanMax(md,k,t){let m=0;for(let i=0;i<N;i++){const a=md.VX[i*T+t],b=md.VY[i*T+t];if(!isFinite(a)||!isFinite(b))continue;const v=k==='x'?Math.abs(a):k==='y'?Math.abs(b):Math.hypot(a,b);if(v>m)m=v;}return m;}
+function vmaxFor(md,k){ // top of the colour scale for basis k: 'mag' | 'x' | 'y'
+  if(st.crange==='manual'&&st.cman>0) return st.cman;
+  const base=st.crange==='maxall'?(k==='x'?md.maxx:k==='y'?md.maxy:md.maxm):st.crange==='scan'?scanMax(md,k,st.t):(k==='x'?md.p99x:k==='y'?md.p99y:md.p99);
+  return Math.max(1e-9,base*st.cmax);}
+function vmaxOf(md){const c=eC(); return vmaxFor(md,c==='x'?'x':c==='y'?'y':'mag');}
 function valColour(v,vmax){if(st.cmode==='ud') return udColour(v,vmax); return st.cmode==='x'||st.cmode==='y'?diverg(nrm(v,vmax)):turbo(nrm(v,vmax));}
 function draw3D(md){
   const ctx=mctx, t=st.t, vmax=vmaxOf(md);
@@ -662,14 +676,26 @@ function drawColourbar(md){
   ctx.fillStyle='#1d2330';
   const lab=ud?(st.udAxis==='y'?'Y  ▲ up':'X  ▶ right'):st.cmode==='mag'?'|v|':st.cmode==='x'?'X':'Y';
   ctx.fillText(lab,x,y0-10);
-  if(ud){ctx.fillStyle='#6b7383'; ctx.fillText(st.udAxis==='y'?'▼ down':'◀ left',x,y0+h+(thrActive()?44:16)); ctx.fillStyle='#1d2330';}
+  if(ud){ctx.fillStyle='#6b7383'; ctx.fillText(st.udAxis==='y'?'▼ down':'◀ left',x,y0+h+16); ctx.fillStyle='#1d2330';}
   for(let q=0;q<=4;q++){const v=fv(1-q/4); ctx.fillText((div&&clo>0&&q===2?'±'+clo.toFixed(3):v.toFixed(3)),x+w+4,y0+h*q/4+4);}
   if(thrActive()&&!st.thrStretch&&st.thr<vmax){ // mark threshold on unstretched bar
     ctx.strokeStyle='#1d2330'; ctx.lineWidth=1.5;
     const marks=div?[0.5+0.5*st.thr/vmax,0.5-0.5*st.thr/vmax]:[st.thr/vmax];
     marks.forEach(f=>{const yy=y0+h*(1-f); ctx.beginPath(); ctx.moveTo(x-4,yy); ctx.lineTo(x+w+2,yy); ctx.stroke();});
   }
-  if(thrActive()){ctx.fillStyle='#6b7383'; ctx.fillText('focus ≥',x-4,y0+h+18); ctx.fillText(String(st.thr),x-4,y0+h+31);}
+  // actual maximum of the shown scan vs the top of the scale
+  {const kk=eC()==='x'?'x':eC()==='y'?'y':'mag', smax=scanMax(md,kk,st.t); let nOver=0;
+   for(let i=0;i<N;i++){const a=md.VX[i*T+st.t],b=md.VY[i*T+st.t];if(!isFinite(a)||!isFinite(b))continue;const v=kk==='x'?Math.abs(a):kk==='y'?Math.abs(b):Math.hypot(a,b);if(v>chi)nOver++;}
+   const lab=kk==='mag'?'max |v|':kk==='x'?'max |X|':'max |Y|';
+   if(smax>chi){ // overflow cap above the bar
+     ctx.fillStyle=ud?st.udPos:div?diverg(1):turbo(1); ctx.beginPath(); ctx.moveTo(x,y0-2); ctx.lineTo(x+w,y0-2); ctx.lineTo(x+w/2,y0-12); ctx.closePath(); ctx.fill();
+     ctx.fillStyle='#c0392b'; ctx.font='bold 11px system-ui'; ctx.fillText(`max ${smax.toFixed(3)}`,x-6,y0+h+(ud?30:16)); ctx.font='11px system-ui';
+     ctx.fillStyle='#6b7383'; ctx.font='10px system-ui'; ctx.fillText(`${nOver} dies over`,x-6,y0+h+(ud?43:29));
+   } else { // mark where the scan maximum sits on the bar
+     const f=div?0.5+0.5*Math.min(1,(smax-clo)/(chi-clo||1)):Math.max(0,(smax-clo)/(chi-clo||1)), yy=y0+h*(1-f);
+     ctx.strokeStyle='#1d2330'; ctx.lineWidth=1.5; ctx.beginPath(); ctx.moveTo(x-6,yy); ctx.lineTo(x,yy); ctx.stroke();
+     ctx.fillStyle='#1d2330'; ctx.font='bold 11px system-ui'; ctx.fillText(`max ${smax.toFixed(3)}`,x-6,y0+h+(ud?30:16)); ctx.font='11px system-ui';}
+   if(thrActive()){ctx.fillStyle='#6b7383'; ctx.fillText('focus ≥ '+st.thr,x-6,y0+h+(ud?56:42));}}
 }
 
 // ---------- trend / stability ----------
@@ -847,8 +873,8 @@ map.addEventListener('mouseleave',()=>$('tip').style.display='none');
 function setT(t){st.t=Math.max(0,Math.min(T-1,t)); if(typeof curTab!=='undefined'&&curTab==='mgmt') renderMgmt(); else draw();}
 $('slider').addEventListener('input',e=>setT(+e.target.value));
 $('prevB').onclick=()=>setT(st.t-1); $('nextB').onclick=()=>setT(st.t+1);
-$('mode').onchange=e=>{st.mode=e.target.value;TR.tol=null;syncThr();draw()};
-$('cmode').onchange=e=>{st.cmode=e.target.value;$('udCtl').style.display=st.cmode==='ud'?'':'none';syncThr();draw()};
+$('mode').onchange=e=>{st.mode=e.target.value;TR.tol=null;syncThr();cLabels();draw()};
+$('cmode').onchange=e=>{st.cmode=e.target.value;setTimeout(cLabels);$('udCtl').style.display=st.cmode==='ud'?'':'none';syncThr();draw()};
 function udLabels(){const y=st.udAxis==='y';$('udPosL').textContent=y?'Up (+Y)':'Right (+X)';$('udNegL').textContent=y?'Down (−Y)':'Left (−X)';}
 $('udAxis').onchange=e=>{st.udAxis=e.target.value;udLabels();syncThr();draw()};
 $('udPos').oninput=e=>{st.udPos=e.target.value;draw()};
@@ -879,7 +905,12 @@ $('thrOff').onclick=()=>setThr(0);
 $('thrBelow').onchange=e=>{st.thrBelow=e.target.value;draw()};
 $('thrStretch').onchange=e=>{st.thrStretch=e.target.checked;draw()};
 $('scale').oninput=e=>{st.scale=+e.target.value;$('scaleVal').textContent=st.scale.toFixed(2)+'×';draw()};
-$('cmax').oninput=e=>{st.cmax=+e.target.value;$('cmaxVal').textContent=st.cmax.toFixed(2)+'×';draw()};
+function cLabels(){const md=modeData(st.mode); $('cmaxVal').textContent=st.cmax.toFixed(2)+'×';
+  $('cmaxAbs').textContent=st.crange==='scan'?'(top = scan max × factor)':`→ top ${vmaxOf(md).toFixed(3)}`;
+  $('cfacBox').style.display=st.crange==='manual'?'none':''; $('cmanBox').style.display=st.crange==='manual'?'':'none';}
+$('cmax').oninput=e=>{st.cmax=+e.target.value;cLabels();draw()};
+$('crange').onchange=e=>{st.crange=e.target.value; if(st.crange==='manual'&&!(st.cman>0)){st.cman=+vmaxOf(modeData(st.mode)).toPrecision(3);$('cman').value=st.cman;} if(st.crange!=='p99'&&st.crange!=='manual'&&st.cmax<1){st.cmax=1;$('cmax').value=1;} cLabels();draw()};
+$('cman').onchange=e=>{const v=+e.target.value; st.cman=v>0?v:0; cLabels();draw()};
 $('trail').onchange=e=>{st.trail=e.target.checked;draw()};
 function coLabels(){$('coAv').textContent=Math.round(CO.alpha*100)+'%';$('coRv').textContent=CO.rot+'°';}
 if(!CHK) $('coCtl').style.display='none';
@@ -899,6 +930,7 @@ $('znOn').onchange=e=>{ZN.on=e.target.checked;$('znCtl').style.display=ZN.on?'':
 $('znSrc').onchange=e=>{ZN.src=e.target.checked;draw()};
 [['znR','r'],['znF','f'],['znA','a'],['znL','l'],['znN','nmin'],['znO','oct']].forEach(([id,k])=>$(id).oninput=e=>{ZN[k]=+e.target.value;znLabels();draw()});
 znLabels();
+cLabels();
 $('znK').onchange=e=>{ZN.pk=Math.max(1,+e.target.value||1);e.target.value=ZN.pk;draw()}; $('znW').onchange=e=>{ZN.pw=Math.max(1,+e.target.value||1);e.target.value=ZN.pw;draw()};
 $('trailN').onchange=e=>{st.trailN=Math.max(2,+e.target.value||10);draw()};
 $('speed').oninput=e=>{st.speed=+e.target.value;$('spdVal').textContent=st.speed};
@@ -943,7 +975,7 @@ function exportPNG(){
     c.fillStyle='#1d2330'; c.font='bold 16px system-ui'; c.fillText(mg?($('mTitle').value||'Wafer shift stability'):'2D Shift Quiver Map',10,22);
     c.font='13px system-ui'; c.fillText(`Scan ${st.t+1}/${T} · run ${D.runs[st.t]} · ${D.times[st.t]} (${fmtDur(TMIN[st.t])} after start)`,10,42);
     c.fillStyle='#6b7383'; c.font='12px system-ui';
-    const bits=[`vector: ${vName}`,`colour: ${cName}`,`arrow scale ${st.scale.toFixed(2)}×`,`colour max ${st.cmax.toFixed(2)}×`];
+    const bits=[`vector: ${vName}`,`colour: ${cName}`,`arrow scale ${st.scale.toFixed(2)}×`,`colour top ${vmaxOf(md).toFixed(3)} (${{p99:'p99',maxall:'max all',scan:'scan max',manual:'manual'}[st.crange]}${st.crange==='manual'?'':' ×'+st.cmax.toFixed(2)})`];
     if(st.view==='3d') bits.push('3D view'); if(VR) bits.push(`view rotated ${VR>0?'+':''}${VR}°`);
     if(CO.view!=='off'&&st.view!=='3d') bits.push(`chuck: ${CO.view==='top'?'top side':'bottom features (true positions)'}`);
     if(ZN.on&&st.view!=='3d') bits.push(`zones: ≥${Math.round(ZN.f*100)}% in, r ${ZN.r} pitch`); if(thrActive()) bits.push(`focus ≥ ${st.thr}`);
