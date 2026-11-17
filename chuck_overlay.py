@@ -6,7 +6,7 @@ usage: python3 chuck_overlay.py <chuck.eprt> <outdir> [map1.html map2.html ...]
 The .eprt is a zip whose 'eModel' entry is a zlib-compressed HOOPS (HSF) stream. Each face
 is a shell: float32 points (metres) followed by a byte/uint16 list of triangle strips.
 Views are drawn with the painter's algorithm by height (strip winding is not consistent,
-so no back-face culling). Bottom view is seen from below, i.e. mirrored in X."""
+so no back-face culling). Bottom view is drawn at true positions (as if seen through from the top), not mirrored."""
 import re,struct,zlib,zipfile,sys,io,base64,json,numpy as np
 from PIL import Image, ImageDraw, ImageFilter
 src,outdir=sys.argv[1],sys.argv[2]
@@ -41,7 +41,7 @@ def render(view):
     for t in idx:
         depth=(ytop-ym[t]) if view=='top' else (ym[t]-ybot)                   # distance below the viewed surface
         g=int(max(70,min(222,222-depth*10-(40 if depth>0.05 else 0))))
-        sx=-1 if view=='bottom' else 1                                            # seen from below = mirrored in X
+        sx=1   # bottom drawn at true positions (x-ray from the top), so it registers with the wafer map
         pts=[(S/2+sx*T[t,j]*sc,S/2+T[t,j+2]*sc) for j in (0,3,6)]
         dr.polygon(pts,fill=(g,g,g,255))
     im=im.filter(ImageFilter.SMOOTH)
