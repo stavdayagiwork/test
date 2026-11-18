@@ -261,7 +261,8 @@
   <div class="card" id="timebar">
     <div id="tbTop">
       <button id="play" class="primary">▶ Play</button>
-      <button id="prevB">◀</button><button id="nextB">▶</button>
+      <button id="prevB" title="Back by the step">◀</button><button id="nextB" title="Forward by the step">▶</button>
+      <label class="row" style="gap:4px;font-size:12px;color:var(--mute)" title="Play, ◀ ▶ and ←/→ move by this many scans">step <input type="number" id="stepN" value="1" min="1" max="100" style="width:52px"></label>
       <span id="runLabel"></span>
       <input type="range" id="slider" min="0" value="0" step="1">
     </div>
@@ -330,11 +331,11 @@
     <div class="hint" style="color:var(--mute);font-size:12px;margin-bottom:10px">Renders every scan with the current settings (vector, colours, chuck overlay, rotation, zoom, zones) from the active tab. In PowerPoint, insert the MP4 via Insert → Video; its play bar works as the slider.</div>
     <div class="ctl"><label>Format</label><select id="aniFmt"></select></div>
     <div class="row" style="gap:10px;margin-bottom:10px">
-      <div style="flex:1"><label style="font-weight:600;display:block">Width</label><select id="aniW"><option value="960">960 px</option><option value="1280" selected>1280 px</option><option value="1920">1920 px</option></select></div>
+      <div style="flex:1"><label style="font-weight:600;display:block">Width</label><select id="aniW"><option value="960">960 px</option><option value="1280">1280 px</option><option value="1600" selected>1600 px</option><option value="1920">1920 px</option></select></div>
       <div style="flex:1"><label style="font-weight:600;display:block">Scans / second</label><input type="number" id="aniSpd" min="0.5" max="30" step="0.5" value="6"></div>
       <div style="flex:1"><label style="font-weight:600;display:block">Hold end (s)</label><input type="number" id="aniHold" min="0" max="20" step="0.5" value="2"></div>
     </div>
-    <div class="row" style="gap:10px;margin-bottom:10px"><span>Scans</span><input type="number" id="aniFrom" min="1" value="1" style="width:70px"><span>to</span><input type="number" id="aniTo" min="1" style="width:70px"></div>
+    <div class="row" style="gap:10px;margin-bottom:10px"><span>Scans</span><input type="number" id="aniFrom" min="1" value="1" style="width:70px"><span>to</span><input type="number" id="aniTo" min="1" style="width:70px"><span>every</span><input type="number" id="aniStep" min="1" value="1" style="width:60px"><span>scan(s)</span></div>
     <div class="row" style="gap:14px;margin-bottom:10px;flex-wrap:wrap">
       <label class="row" style="gap:4px"><input type="checkbox" id="aniSlider" checked> Time slider bar</label>
       <label class="row" style="gap:4px"><input type="checkbox" id="aniInfo" checked> Info header</label>
@@ -351,7 +352,8 @@
     <div class="msub" id="mgSub"></div>
     <div class="mtime" id="mgTime">
       <button id="mgPlay" class="primary">▶ Play</button>
-      <button id="mgPrev" title="Previous scan">◀</button><button id="mgNext" title="Next scan">▶</button>
+      <button id="mgPrev" title="Back by the step">◀</button><button id="mgNext" title="Forward by the step">▶</button>
+      <label class="row" style="gap:4px;font-size:12px;color:var(--mute)" title="Play and ◀ ▶ move by this many scans">step <input type="number" id="mgStepN" value="1" min="1" max="100" style="width:52px"></label>
       <div class="lbl" id="mgLbl"></div>
       <input type="range" id="mgSlider" min="0" step="1" value="0">
       <button id="mgFirst" title="Go to first scan">Start</button><button id="mgLast" title="Go to last scan">End</button>
@@ -372,8 +374,8 @@
 const D = JSON.parse(document.getElementById('data').textContent);
 const N = D.pts.length, T = D.runs.length;
 // ---- version (bump on every change to the page code)
-const APP_VERSION='2.5.0', APP_DATE='2026-11-17';
-const APP_HISTORY=['2.5.0  Export animation (MP4 / WebM / GIF) with baked-in time slider','2.4.0  colour range basis (p99 / max all / scan max / manual); scan max and overflow shown on the colour bar','2.3.0  Export PNG (map with all overlays, optional info header and chart)','2.2.0  chuck registered top-up as in the tool (+90°), bottom drawn at true positions, whole-view rotation','2.1.0  chuck CAD overlay (top / bottom view, rotate, mirror, offset)','2.0.0  version label, data source / build stamp','1.9  larger map, Large map toggle','1.8  convergence / divergence zones','1.7  management view (cards, summary, slider, mean & max)','1.6  two-colour up/down arrows','1.5  trend slope, stability, Max series','1.4  focus threshold','1.0  2D/3D quiver map'];
+const APP_VERSION='2.6.0', APP_DATE='2026-11-18';
+const APP_HISTORY=['2.6.0  sharp GIF (up to 1920 px, chart re-rendered, better palette); scan step for play / arrows / animation','2.5.0  Export animation (MP4 / WebM / GIF) with baked-in time slider','2.4.0  colour range basis (p99 / max all / scan max / manual); scan max and overflow shown on the colour bar','2.3.0  Export PNG (map with all overlays, optional info header and chart)','2.2.0  chuck registered top-up as in the tool (+90°), bottom drawn at true positions, whole-view rotation','2.1.0  chuck CAD overlay (top / bottom view, rotate, mirror, offset)','2.0.0  version label, data source / build stamp','1.9  larger map, Large map toggle','1.8  convergence / divergence zones','1.7  management view (cards, summary, slider, mean & max)','1.6  two-colour up/down arrows','1.5  trend slope, stability, Max series','1.4  focus threshold','1.0  2D/3D quiver map'];
 {const src=D.src?` · data: ${D.src}`:'', built=D.built?` · built ${D.built}`:'';
  const vi=document.getElementById('verInfo'); vi.textContent='v'+APP_VERSION;
  vi.title=`Quiver map v${APP_VERSION} (${APP_DATE})${src}${built}\n\nHistory:\n`+APP_HISTORY.join('\n');
@@ -431,7 +433,7 @@ function hsl(a){return `hsl(${((a*180/Math.PI)+360)%360},80%,45%)`;}
 
 // ---- state & UI
 const $=id=>document.getElementById(id);
-const st={crange:'p99',cman:0,view:'2d',mesh:false,t:0,mode:'ref',cmode:'mag',scale:1.1,cmax:0.7,playing:false,trail:false,trailN:10,speed:6,thr:0,thrBelow:'dim',thrStretch:true,udAxis:'y',udPos:'#e0301e',udNeg:'#1f5fd6',udNeu:'#9aa3b2',udDead:0,udShade:true};
+const st={step:1,crange:'p99',cman:0,view:'2d',mesh:false,t:0,mode:'ref',cmode:'mag',scale:1.1,cmax:0.7,playing:false,trail:false,trailN:10,speed:6,thr:0,thrBelow:'dim',thrStretch:true,udAxis:'y',udPos:'#e0301e',udNeg:'#1f5fd6',udNeu:'#9aa3b2',udDead:0,udShade:true};
 $('slider').max=T-1;
 
 const map=$('map'); let mctx=map.getContext('2d');
@@ -757,8 +759,8 @@ function fmtDur(min){const m=Math.round(min);return m>=60?`${Math.floor(m/60)}h 
 
 const TSV={mean:true,max:true,sx:true,sy:true}; let TSMAXAX=true;
 const tsC=$('ts');
-function drawTS(){
-  const md=modeData(st.mode), ctx=tsC.getContext('2d'), W=L.tw, H=170, pl=44, pt=8, pb=22; let pr=10;
+function drawTS(tgt,tw){
+  const md=modeData(st.mode), ctx=tgt||tsC.getContext('2d'), W=tw||L.tw, H=170, pl=44, pt=8, pb=22; let pr=10;
   ctx.clearRect(0,0,W,H);
   const S=md.series, vis=TSV, maxR=vis.max&&TSMAXAX;
   const leftKeys=['mean','sx','sy'].filter(k=>vis[k]).concat(vis.max&&!maxR?['max']:[]);
@@ -779,7 +781,7 @@ function drawTS(){
   if(!['mean','max','sx','sy'].some(k=>vis[k])){ctx.fillStyle='#6b7383';ctx.fillText('All series hidden - tick one in the legend',pl+10,pt+20);}
   ctx.strokeStyle='#1d2330'; ctx.lineWidth=1.2; ctx.beginPath(); ctx.moveTo(X(st.t),pt); ctx.lineTo(X(st.t),H-pb); ctx.stroke();
   ['mean','max','sx','sy'].filter(k=>vis[k]).forEach(k=>{ctx.fillStyle=COL[k]; ctx.beginPath(); ctx.arc(X(st.t),Yk(k)(S[k][st.t]),3,0,7); ctx.fill();});
-  tsC._X=X; tsC._pl=pl; tsC._pr=pr;
+  if(!tgt){tsC._X=X; tsC._pl=pl; tsC._pr=pr;}
   // ---- trend overlay
   const tr=trendCalc(md), arr=tr.arr, sl=slopeAt(arr,st.t,Math.max(3,TR.W));
   const serCol={mean:'#2f6fed',sx:'#e8743b',sy:'#19a979',max:'#7b4fd6'}[TR.ser];
@@ -823,7 +825,7 @@ function drawTS(){
   if(tr.post){const bad=Math.abs(tr.post.delta)>tr.tol;
     out.push(['Net drift settle → end',`<span class="${bad?'st-rise':'st-flat'}">${tr.post.delta>=0?'+':''}${tr.post.delta.toFixed(4)}</span>`,
       `${tr.post.perH>=0?'+':''}${tr.post.perH.toFixed(4)} /h over ${fmtDur(tr.post.dur)}`+(bad?'<br><b class="st-rise">⚠ exceeds tol: slow drift not caught by the N-window test</b>':'')]);}
-  $('trendOut').innerHTML=out.map(([n,v,h])=>`<div class="stat"><b>${v}</b><span>${n}${h?'<br>'+h:''}</span></div>`).join('');
+  if(!tgt) $('trendOut').innerHTML=out.map(([n,v,h])=>`<div class="stat"><b>${v}</b><span>${n}${h?'<br>'+h:''}</span></div>`).join('');
 }
 tsC.addEventListener('click',e=>{const r=tsC.getBoundingClientRect(); const f=(e.clientX-r.left-tsC._pl)/(r.width-tsC._pl-tsC._pr); setT(Math.round(f*(T-1)));});
 
@@ -895,7 +897,9 @@ map.addEventListener('mouseleave',()=>$('tip').style.display='none');
 
 function setT(t){st.t=Math.max(0,Math.min(T-1,t)); if(typeof curTab!=='undefined'&&curTab==='mgmt') renderMgmt(); else draw();}
 $('slider').addEventListener('input',e=>setT(+e.target.value));
-$('prevB').onclick=()=>setT(st.t-1); $('nextB').onclick=()=>setT(st.t+1);
+$('prevB').onclick=()=>setT(st.t-st.step); $('nextB').onclick=()=>setT(st.t+st.step);
+function setStep(v){st.step=Math.max(1,Math.min(T,Math.round(+v)||1)); $('stepN').value=st.step; $('mgStepN').value=st.step;}
+$('stepN').onchange=e=>setStep(e.target.value);
 $('mode').onchange=e=>{st.mode=e.target.value;TR.tol=null;syncThr();cLabels();draw()};
 $('cmode').onchange=e=>{st.cmode=e.target.value;setTimeout(cLabels);$('udCtl').style.display=st.cmode==='ud'?'':'none';syncThr();draw()};
 function udLabels(){const y=st.udAxis==='y';$('udPosL').textContent=y?'Up (+Y)':'Right (+X)';$('udNegL').textContent=y?'Down (−Y)':'Left (−X)';}
@@ -961,11 +965,11 @@ $('scaleVal').textContent=st.scale.toFixed(2)+'×';$('cmaxVal').textContent=st.c
 let timer=null;
 function togglePlay(){st.playing=!st.playing;$('play').textContent=st.playing?'❚❚ Pause':'▶ Play';if($('mgPlay'))$('mgPlay').textContent=st.playing?'❚❚ Pause':'▶ Play';
   if(st.playing){ if(st.t>=T-1) setT(0); let last=performance.now();
-    const loop=now=>{ if(!st.playing)return; if(now-last>=1000/st.speed){last=now; if(st.t>=T-1){togglePlay();return;} setT(st.t+1);} timer=requestAnimationFrame(loop);};
+    const loop=now=>{ if(!st.playing)return; if(now-last>=1000/st.speed){last=now; if(st.t>=T-1){togglePlay();return;} setT(Math.min(T-1,st.t+st.step));} timer=requestAnimationFrame(loop);};
     timer=requestAnimationFrame(loop);} else cancelAnimationFrame(timer);}
 $('play').onclick=togglePlay;
 document.addEventListener('keydown',e=>{if((curTab==='mgmt'&&!MG.slider)||e.target.tagName==='TEXTAREA'||(e.target.tagName==='INPUT'&&(e.target.type==='number'||e.target.type==='text')))return;
-  if(e.key==='ArrowRight'){setT(st.t+1);e.preventDefault()} else if(e.key==='ArrowLeft'){setT(st.t-1);e.preventDefault()} else if(e.key===' '){togglePlay();e.preventDefault()}});
+  if(e.key==='ArrowRight'){setT(st.t+st.step);e.preventDefault()} else if(e.key==='ArrowLeft'){setT(st.t-st.step);e.preventDefault()} else if(e.key===' '){togglePlay();e.preventDefault()}});
 window.addEventListener('resize',resize);
 // ================= Management view =================
 const MG={cards:true,summary:true,map:true,trend:true,band:false,scaninfo:true,note:false,slider:true,mmcards:true,mmchart:true,bigmap:true};
@@ -989,8 +993,8 @@ function mapLayout(){ // layout of the map as shown in the active tab
 }
 function composeFrame(o){ // o: {F, info, chart, slider, into}
   const md=modeData(st.mode), mg=curTab==='mgmt', lay=o.lay;
-  const chartCv=o.chart?(mg?(MG.trend&&$('mgTr').clientWidth?$('mgTr'):null):$('ts')):null;
-  const chartH=chartCv?chartCv.clientHeight+12:0, infoH=o.info?74:0, sliderH=o.slider?58:0, footH=o.info?20:0;
+  const chartOn=!!o.chart&&(!mg||(MG.trend&&$('mgTr').clientWidth>0)), chartPH=mg?Math.min(300,$('mgTr').clientHeight||260):170;
+  const chartH=chartOn?chartPH+12:0, infoH=o.info?74:0, sliderH=o.slider?58:0, footH=o.info?20:0;
   const W=lay.w, H=infoH+lay.h+chartH+sliderH+footH;
   const cv=o.into||document.createElement('canvas'); if(!o.into){cv.width=Math.round(W*o.F); cv.height=Math.round(H*o.F);}
   const c=cv.getContext('2d'); c.setTransform(o.F,0,0,o.F,0,0); c.fillStyle='#ffffff'; c.fillRect(0,0,W,H);
@@ -1009,7 +1013,10 @@ function composeFrame(o){ // o: {F, info, chart, slider, into}
   const saveC=mctx, saveL=L; mctx=c; L=lay; c.save(); c.translate(0,infoH);
   try{ if(st.view==='3d') draw3D(md); else draw2D(md); drawColourbar(md); } finally { c.restore(); mctx=saveC; L=saveL; }
   let y=infoH+lay.h;
-  if(chartCv){ c.drawImage(chartCv,0,y+6,chartCv.clientWidth,chartCv.clientHeight); y+=chartH; }
+  if(chartOn){ // vector re-render (not a screen copy): sharp at any export size, spans the full width
+    c.save(); c.translate(0,y+6); const clr=c.clearRect; c.clearRect=function(x,yy,w,h){this.fillStyle='#ffffff';this.fillRect(x,yy,w,h);};
+    try{ if(mg) drawMgTrend(c,W,chartPH,mgStatus(md)); else drawTS(c,W); } finally { c.clearRect=clr; delete c.clearRect; c.restore(); }
+    y+=chartH; }
   if(o.slider){ // baked-in time slider
     const x0=20,x1=W-20,yy=y+30,fr=T>1?TMIN[st.t]/TMIN[T-1]:0,kx=x0+(x1-x0)*fr;
     c.fillStyle='#dfe3ea'; c.beginPath(); c.roundRect(x0,yy-4,x1-x0,8,4); c.fill();
@@ -1040,7 +1047,7 @@ function aniFormats(){const f=[]; const ok=t=>window.MediaRecorder&&MediaRecorde
   f.push(['gif','Animated GIF (plays everywhere, loops, no seek bar)','']); return f;}
 function openAni(){
   const f=aniFormats(); $('aniFmt').innerHTML=f.map(([k,n])=>`<option value="${k}">${n}</option>`).join('');
-  $('aniFrom').max=$('aniTo').max=T; $('aniFrom').value=1; $('aniTo').value=T; $('aniSpd').value=st.speed; $('aniMsg').textContent=''; $('aniBar').style.width='0%';
+  $('aniFrom').max=$('aniTo').max=T; $('aniFrom').value=1; $('aniTo').value=T; $('aniSpd').value=st.speed; $('aniStep').value=st.step; $('aniMsg').textContent=''; $('aniBar').style.width='0%';
   $('aniDlg').style.display='flex';}
 $('bAni').onclick=openAni; $('mAni').onclick=openAni;
 $('aniClose').onclick=()=>{if(ANI.busy){ANI.cancel=true;}else $('aniDlg').style.display='none';};
@@ -1049,7 +1056,8 @@ $('aniGo').onclick=async()=>{
   if(ANI.busy) return; const lay=mapLayout(); if(!lay){alert('The wafer map is hidden in the management view.');return;}
   const fmt=$('aniFmt').value, spec=aniFormats().find(x=>x[0]===fmt), Wt=+$('aniW').value, spd=Math.max(0.5,+$('aniSpd').value||6), hold=Math.max(0,+$('aniHold').value||0);
   const t0=Math.max(1,Math.min(T,+$('aniFrom').value||1))-1, t1=Math.max(t0+1,Math.min(T,+$('aniTo').value||T))-1;
-  const opt={lay,F:(fmt==='gif'?Math.min(Wt,960):Wt)/lay.w,info:$('aniInfo').checked,chart:$('aniChart').checked,slider:$('aniSlider').checked};
+  const stepA=Math.max(1,Math.round(+$('aniStep').value||1));
+  const opt={lay,F:Wt/lay.w,info:$('aniInfo').checked,chart:$('aniChart').checked,slider:$('aniSlider').checked};
   const tSave=st.t, wasPlaying=st.playing; if(wasPlaying) togglePlay();
   ANI.busy=true; ANI.cancel=false; $('aniGo').disabled=true; $('aniClose').textContent='Cancel';
   const prog=(i,n,msg)=>{$('aniBar').style.width=(100*i/n).toFixed(1)+'%'; $('aniMsg').textContent=msg;};
@@ -1057,45 +1065,52 @@ $('aniGo').onclick=async()=>{
   try{
     const first=frame(t0); let cv=document.createElement('canvas'); cv.width=first.cv.width&~1; cv.height=first.cv.height&~1;
     const cc=cv.getContext('2d'); const put=src=>{cc.drawImage(src,0,0);};
-    const n=t1-t0+1, name=`${fileBase()}_scans${t0+1}-${t1+1}`;
+    const TL=[]; for(let t=t0;t<=t1;t+=stepA) TL.push(t); if(TL[TL.length-1]!==t1) TL.push(t1); // frames: every stepA-th scan, always ending on the last
+    const n=TL.length, name=`${fileBase()}_scans${t0+1}-${t1+1}${stepA>1?'_step'+stepA:''}`;
     if(fmt==='gif'){
       // palette from first / middle / last frame, then LZW-encode every frame (unchanged pixels transparent)
-      const smp=[first.cv, frame(Math.round((t0+t1)/2)).cv, frame(t1).cv].map(x=>{put(x);return cc.getImageData(0,0,cv.width,cv.height).data;});
-      const pal=medianCut(smp,255), gif=new GifWriter(cv.width,cv.height,pal,Math.round(100/spd));
-      for(let t=t0;t<=t1;t++){ if(ANI.cancel) throw new Error('cancelled'); put(frame(t).cv); gif.add(cc.getImageData(0,0,cv.width,cv.height).data, t===t1?Math.round(100*hold)+Math.round(100/spd):0); prog(t-t0+1,n,`Encoding GIF: scan ${t+1} of ${t1+1}`); await sleep(0); }
-      download(gif.finish(),name+'.gif');
+      const ks=[...new Set([0,1,2,3,4,5,6,7].map(k=>TL[Math.round(k*(n-1)/7)]))];
+      const smp=[]; for(const t of ks){ put(frame(t).cv); smp.push(cc.getImageData(0,0,cv.width,cv.height).data); prog(smp.length,ks.length,'Building colour palette…'); await sleep(0); }
+      const KEY=[[255,255,255],[29,35,48],[107,115,131],[47,111,237],[223,227,234],[208,2,27]]; // white, text, muted text, slider, track, worst-die ring
+      const pal=KEY.concat(medianCut(smp,255-KEY.length)), gif=new GifWriter(cv.width,cv.height,pal,Math.round(100/spd));
+      for(let i=0;i<n;i++){ const t=TL[i]; if(ANI.cancel) throw new Error('cancelled'); put(frame(t).cv); gif.add(cc.getImageData(0,0,cv.width,cv.height).data, i===n-1?Math.round(100*hold):0); prog(i+1,n,`Encoding GIF: frame ${i+1} of ${n} (scan ${t+1})`); await sleep(0); }
+      const blob=gif.finish(); download(blob,name+'.gif'); $('aniMsg').textContent=`Done - ${(blob.size/1048576).toFixed(1)} MB, ${n} frames, ${cv.width}×${cv.height} px.`; ANI.doneMsg=true;
     } else {
       const stream=cv.captureStream(0), track=stream.getVideoTracks()[0], chunks=[];
       const rec=new MediaRecorder(stream,{mimeType:spec[2],videoBitsPerSecond:Math.round(cv.width*cv.height*spd*0.25)+2e6});
       rec.ondataavailable=e=>{if(e.data.size)chunks.push(e.data);}; const done=new Promise(r=>rec.onstop=r); rec.start(250);
       const dt=1000/spd;
-      for(let t=t0;t<=t1;t++){ if(ANI.cancel) break; const s0=performance.now(); put(frame(t).cv); track.requestFrame(); prog(t-t0+1,n,`Recording: scan ${t+1} of ${t1+1} (keep this tab visible)`); await sleep(Math.max(0,dt-(performance.now()-s0))); }
+      for(let i=0;i<n;i++){ const t=TL[i]; if(ANI.cancel) break; const s0=performance.now(); put(frame(t).cv); track.requestFrame(); prog(i+1,n,`Recording: frame ${i+1} of ${n} (scan ${t+1}) - keep this tab visible`); await sleep(Math.max(0,dt-(performance.now()-s0))); }
       const last=frame(t1).cv; // hold: re-put the last frame so the recorder keeps emitting frames
       for(let k=0;k<Math.ceil(hold*spd)&&!ANI.cancel;k++){ put(last); track.requestFrame(); await sleep(dt); }
       put(last); track.requestFrame(); await sleep(dt);
       rec.stop(); await done; if(ANI.cancel) throw new Error('cancelled');
       download(new Blob(chunks,{type:spec[2].split(';')[0]}),name+'.'+fmt);
     }
-    prog(1,1,'Done - file downloaded.');
+    if(!ANI.doneMsg) prog(1,1,'Done - file downloaded.'); else $('aniBar').style.width='100%'; ANI.doneMsg=false;
   }catch(e){ $('aniMsg').textContent=e.message==='cancelled'?'Cancelled.':'Failed: '+e.message; }
   finally{ ANI.busy=false; $('aniGo').disabled=false; $('aniClose').textContent='Close'; st.t=tSave; curTab==='mgmt'?renderMgmt():draw(); }
 };
 // ---- minimal GIF89a encoder (global palette from median cut, LZW, frame differencing) ----
 function medianCut(datas,k){
-  const px=[]; datas.forEach(d=>{const step=Math.max(1,Math.floor(d.length/4/40000));for(let i=0;i<d.length;i+=4*step)px.push([d[i],d[i+1],d[i+2]]);});
+  // histogram of unique colours (6 bits / channel); weight = count^0.3 so the large white / grey areas do not
+  // swallow the palette and the (rare) arrow colours keep accurate entries
+  const H=new Map(); datas.forEach(d=>{for(let i=0;i<d.length;i+=4){const key=(d[i]>>2)<<12|(d[i+1]>>2)<<6|(d[i+2]>>2); H.set(key,(H.get(key)||0)+1);}});
+  let px=[]; H.forEach((n,key)=>px.push([((key>>12)&63)*4+2,((key>>6)&63)*4+2,(key&63)*4+2,Math.pow(n,0.3)]));
   let boxes=[px];
   while(boxes.length<k){ let bi=-1,br=-1,bc=0;
-    boxes.forEach((b,i)=>{if(b.length<2)return;for(let c=0;c<3;c++){let lo=255,hi=0;for(const p of b){if(p[c]<lo)lo=p[c];if(p[c]>hi)hi=p[c];}if(hi-lo>br){br=hi-lo;bi=i;bc=c;}}});
-    if(bi<0||br<=0) break; const b=boxes[bi].sort((p,q)=>p[bc]-q[bc]), m=b.length>>1; boxes.splice(bi,1,b.slice(0,m),b.slice(m)); }
-  return boxes.map(b=>{let r=0,g=0,bb=0;for(const p of b){r+=p[0];g+=p[1];bb+=p[2];}return [Math.round(r/b.length),Math.round(g/b.length),Math.round(bb/b.length)];});
+    boxes.forEach((b,i)=>{if(b.length<2)return;for(let c=0;c<3;c++){let lo=255,hi=0;for(const p of b){if(p[c]<lo)lo=p[c];if(p[c]>hi)hi=p[c];}const sc=(hi-lo)*Math.sqrt(b.reduce((a,p)=>a+p[3],0));if(sc>br){br=sc;bi=i;bc=c;}}});
+    if(bi<0||br<=0) break; const b=boxes[bi].sort((p,q)=>p[bc]-q[bc]); let tot=b.reduce((a,p)=>a+p[3],0),acc=0,m=1; for(;m<b.length-1;m++){acc+=b[m-1][3]; if(acc>=tot/2) break;}
+    boxes.splice(bi,1,b.slice(0,m),b.slice(m)); }
+  return boxes.map(b=>{let r=0,g=0,bb=0,w=0;for(const p of b){r+=p[0]*p[3];g+=p[1]*p[3];bb+=p[2]*p[3];w+=p[3];}return [Math.round(r/w),Math.round(g/w),Math.round(bb/w)];});
 }
 function GifWriter(w,h,pal,delay){
   const out=[], bytes=a=>out.push(Uint8Array.from(a)), u16=v=>[v&255,(v>>8)&255];
   const P=pal.slice(0,255); while(P.length<256) P.push([0,0,0]); // index 255 = transparent
   bytes([71,73,70,56,57,97,...u16(w),...u16(h),0xF7,0,0]); bytes(P.flat());
   bytes([0x21,0xFF,11,...[...'NETSCAPE2.0'].map(c=>c.charCodeAt(0)),3,1,0,0,0]);
-  const lut=new Int16Array(32768).fill(-1);
-  const near=(r,g,b)=>{const key=(r>>3)<<10|(g>>3)<<5|(b>>3); let v=lut[key]; if(v>=0) return v; let bd=1e9; const rr=(r&248)+4,gg=(g&248)+4,b2=(b&248)+4;
+  const lut=new Int16Array(262144).fill(-1);
+  const near=(r,g,b)=>{const key=(r>>2)<<12|(g>>2)<<6|(b>>2); let v=lut[key]; if(v>=0) return v; let bd=1e9; const rr=(r&252)+2,gg=(g&252)+2,b2=(b&252)+2;
     for(let i=0;i<pal.length&&i<255;i++){const d=(pal[i][0]-rr)**2+(pal[i][1]-gg)**2+(pal[i][2]-b2)**2;if(d<bd){bd=d;v=i;}} lut[key]=v; return v;};
   let prev=null;
   this.add=(rgba,extraDelay)=>{
@@ -1121,7 +1136,7 @@ function GifWriter(w,h,pal,delay){
   }
 }
 $('mgSlider').addEventListener('input',e=>setT(+e.target.value));
-$('mgPlay').onclick=togglePlay; $('mgPrev').onclick=()=>setT(st.t-1); $('mgNext').onclick=()=>setT(st.t+1);
+$('mgPlay').onclick=togglePlay; $('mgPrev').onclick=()=>setT(st.t-st.step); $('mgNext').onclick=()=>setT(st.t+st.step); $('mgStepN').onchange=e=>setStep(e.target.value);
 $('mgFirst').onclick=()=>setT(0); $('mgLast').onclick=()=>setT(T-1);
 const esc=t=>String(t).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 function fmtV(v,d=3){const u=$('mUnit').value.trim(); return (Math.abs(v)<5*Math.pow(10,-d-1)?0:v).toFixed(d)+(u?' '+u:'');}
